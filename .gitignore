@@ -1,0 +1,6 @@
+pb_data/
+.env
+node_modules/
+.idea/
+certs/*
+!certs/.gitkeep

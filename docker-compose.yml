@@ -1,0 +1,44 @@
+services:
+  eventi:
+    build:
+      context: .
+      args:
+        PB_VERSION: ${PB_VERSION:-0.40.5}
+    image: eventi:latest
+    container_name: eventi
+    restart: unless-stopped
+    ports:
+      - "${EVENTI_BIND_IP:-127.0.0.1}:${EVENTI_PORT:-8090}:8090"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: ${TZ:-Europe/Zurich}
+    volumes:
+      - eventi_data:/pb/pb_data
+
+  # HTTPS in front of eventi; enabled with COMPOSE_PROFILES=https in .env
+  caddy:
+    image: caddy:2.10-alpine
+    container_name: eventi-caddy
+    restart: unless-stopped
+    profiles: [https]
+    depends_on: [eventi]
+    ports:
+      - "${EVENTI_HTTPS_BIND_IP:-0.0.0.0}:80:80"
+      - "${EVENTI_HTTPS_BIND_IP:-0.0.0.0}:443:443"
+      - "${EVENTI_HTTPS_BIND_IP:-0.0.0.0}:443:443/udp"
+    environment:
+      TZ: ${TZ:-Europe/Zurich}
+      EVENTI_DOMAIN: ${EVENTI_DOMAIN:-eventi.example.ch}
+      EVENTI_ALLOWED_IPS: ${EVENTI_ALLOWED_IPS:-private_ranges}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${EVENTI_CERT_DIR:-./certs}:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  eventi_data:
+  caddy_data:
+  caddy_config:

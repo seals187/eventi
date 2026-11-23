@@ -1,0 +1,8 @@
+pb_data
+.env
+.git
+.idea
+*.md
+docker-compose*.yml
+certs
+Caddyfile

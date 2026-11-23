@@ -1,0 +1,8 @@
+# Development override: live-mount frontend, hooks and migrations.
+# docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+services:
+  eventi:
+    volumes:
+      - ./pb_public:/pb/pb_public
+      - ./pb_hooks:/pb/pb_hooks
+      - ./pb_migrations:/pb/pb_migrations
