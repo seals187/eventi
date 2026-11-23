@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] – 2026-11-24
+
 ### Added
 - Development: ESLint with architecture rules (`tests/lint.sh`, runs in Docker), CI workflow running lint and the
   test suite on every push and pull request, optional pre-commit hook (`.githooks`), screenshot tool
@@ -145,7 +147,8 @@ First public release.
 - Test suite `tests/docker-test.sh`: isolated container with Mailpit, API and email flow tests;
   the test container keeps running for manual testing
 
-[Unreleased]: https://github.com/seals187/eventi/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/seals187/eventi/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/seals187/eventi/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/seals187/eventi/compare/v0.0.7...v0.1.0
 [0.0.7]: https://github.com/seals187/eventi/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/seals187/eventi/compare/v0.0.5...v0.0.6
