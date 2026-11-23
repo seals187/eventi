@@ -30,7 +30,7 @@ The first eventi admin (and dashboard superuser) is `PB_ADMIN_EMAIL` / `PB_ADMIN
 A prebuilt image is published for every release:
 
 ```bash
-docker pull ghcr.io/seals187/eventi:latest      # or a fixed version, e.g. :0.0.2
+docker pull ghcr.io/seals187/eventi:latest      # or a fixed version, e.g. :0.0.3
 ```
 
 Development with live-mounted files (hooks reload automatically on change):

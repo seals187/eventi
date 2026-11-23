@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.3] – 2026-11-23
 
 ### Added
 - Display size control in the header (− / +, left of the account menu): 70 % to 110 % in 5 % steps,
@@ -67,5 +67,6 @@ First public release.
 - Test suite `tests/docker-test.sh`: isolated container with Mailpit, API and email flow tests;
   the test container keeps running for manual testing
 
+[0.0.3]: https://github.com/seals187/eventi/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/seals187/eventi/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/seals187/eventi/releases/tag/v0.0.1
