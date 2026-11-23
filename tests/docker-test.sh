@@ -11,7 +11,7 @@
 set -u
 cd "$(dirname "$0")/.."
 
-PORT="${PORT:-8098}"
+PORT="${PORT:-8099}"
 MAILPIT_PORT="${MAILPIT_PORT:-8025}"
 NET=eventi-test
 ADMIN_EMAIL=admin@test.local

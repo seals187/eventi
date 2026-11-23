@@ -4,13 +4,13 @@
 #   EVENTI_SMTP_HOST=<mailpit> EVENTI_SMTP_PORT=1025 EVENTI_SIGNUP=domain,approval
 #   EVENTI_SIGNUP_DOMAINS=firma.ch EVENTI_DIGEST_MINUTES=0 EVENTI_RATE_LIMIT=false
 #
-#   BASE=http://127.0.0.1:8098 MAILPIT=http://127.0.0.1:8025 ADMIN_EMAIL=... ADMIN_PASSWORD=... tests/mail.sh
+#   BASE=http://127.0.0.1:8099 MAILPIT=http://127.0.0.1:8025 ADMIN_EMAIL=... ADMIN_PASSWORD=... tests/mail.sh
 # The superuser route POST /api/eventi/outbox/run delivers queued emails at once, so the test
 # does not wait for the cron job. The retry test stops and restarts the Mailpit container
 # (only if docker and the container MAILPIT_CONTAINER, default eventi-mailpit, are available).
 set -u
 
-BASE="${BASE:-http://127.0.0.1:8098}"
+BASE="${BASE:-http://127.0.0.1:8099}"
 MAILPIT="${MAILPIT:-http://127.0.0.1:8025}"
 ADMIN_EMAIL="${ADMIN_EMAIL:?ADMIN_EMAIL missing}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:?ADMIN_PASSWORD missing}"

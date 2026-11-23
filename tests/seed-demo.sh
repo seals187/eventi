@@ -2,10 +2,10 @@
 # Creates a demo poll ("Weihnachtsessen") with a few answers, a comment and a pending invitation,
 # so a freshly started test container has something to look at.
 #
-#   BASE=http://127.0.0.1:8098 ADMIN_EMAIL=... ADMIN_PASSWORD=... tests/seed-demo.sh
+#   BASE=http://127.0.0.1:8099 ADMIN_EMAIL=... ADMIN_PASSWORD=... tests/seed-demo.sh
 set -u
 
-BASE="${BASE:-http://127.0.0.1:8098}"
+BASE="${BASE:-http://127.0.0.1:8099}"
 ADMIN_EMAIL="${ADMIN_EMAIL:?ADMIN_EMAIL missing}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:?ADMIN_PASSWORD missing}"
 H="Content-Type: application/json; charset=utf-8"

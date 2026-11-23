@@ -135,7 +135,7 @@ code login, invitations, reminders, notifications, outbox retries with the mail 
 about a minute: the tests deliver queued emails through the superuser route instead of waiting for the cron job.
 Your `.env` and running containers are not touched. Requirements: docker, bash, curl, perl.
 
-Afterwards the test containers keep running for manual testing: eventi on http://127.0.0.1:8098
+Afterwards the test containers keep running for manual testing: eventi on http://127.0.0.1:8099
 (admin `admin@test.local` / `adminpass123`) and Mailpit with all emails on http://127.0.0.1:8025.
 Remove them with `docker rm -f eventi-test eventi-mailpit`, or run `CLEAN=1 bash tests/docker-test.sh`.
 
