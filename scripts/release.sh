@@ -36,4 +36,5 @@ git add CHANGELOG.md VERSION
 git commit -q -m "Release $V"
 git tag -a "v$V" -m "v$V"
 git push origin main "v$V"
-echo "Released v$V – image and GitHub release are built by the workflow (gh run watch)."
+echo "Released v$V – the workflow now builds the image and the GitHub release:"
+echo "  https://github.com/seals187/eventi/actions"

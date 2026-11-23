@@ -6,5 +6,6 @@ set -u
 cd "$(dirname "$0")/.."
 ESLINT_VERSION=10.15.0
 # MSYS_NO_PATHCONV: keep Git Bash on Windows from rewriting /app into a Windows path
-MSYS_NO_PATHCONV=1 exec docker run --rm -v "$(pwd -W 2>/dev/null || pwd):/app" -w /app node:22-alpine \
+MSYS_NO_PATHCONV=1 exec docker run --rm -v "$(pwd -W 2>/dev/null || pwd):/app" -w /app \
+  -e NPM_CONFIG_UPDATE_NOTIFIER=false -e NPM_CONFIG_LOGLEVEL=error node:22-alpine \
   npx --yes "eslint@$ESLINT_VERSION" --max-warnings 0 pb_public/js pb_hooks pb_migrations
