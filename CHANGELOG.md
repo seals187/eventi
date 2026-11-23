@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Voting page on phones (< 600 px) much more compact: overview slots on two lines instead of four,
+  “change answer” next to the status text, flatter “my answer” rows, narrower answer matrix
+  (name column without time, smaller cells) – overview about 165 px shorter on a 390 px phone
+
 ## [0.0.6] – 2026-11-23
 
 ### Changed

@@ -1292,3 +1292,48 @@ textarea.comment-input { resize: none; overflow: hidden; min-height: 0; line-hei
   /* comment: label in the date column, field next to it (same grid as the slots) */
   .compact .comment-block { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 12px; }
 }
+
+/* voting page on phones (< 600 px): as little scrolling as possible */
+@media (max-width: 599px) {
+  .compact .page-head { margin-bottom: 8px; }
+  .compact .page-head .meta { margin-bottom: 6px; }
+  .compact .page-title { font-size: 1.3rem; margin-bottom: 0; }
+  .compact .desc.lead { font-size: .88rem; }
+  .compact .tabs { margin-bottom: 8px; padding: 3px; gap: 3px; }
+  .compact .tab { padding: 6px 2px; font-size: .84rem; }
+  .compact .card { padding: 12px; }
+  .compact .tab-body > .card { margin-bottom: 8px; }
+
+  /* overview: date + time on one line, bar + counts below */
+  .compact .fav { padding: 10px 12px; gap: 10px; flex-wrap: nowrap; }
+  .compact .fav .ring { width: 52px; height: 52px; }
+  .compact .fav-date { font-size: 1.1rem; }
+  .compact .ov-row { padding: 7px 0; row-gap: 4px; }
+  .compact .slot-name { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 6px; }
+  .compact .slot-name span { font-size: .82rem; }
+  .compact .ov-group small { margin-top: 3px; font-size: .78rem; }
+  .compact .vpill { padding: 2px 9px; font-size: .8rem; }
+  .compact .card-foot { flex-wrap: nowrap; gap: 8px; margin-top: 8px; }
+  .compact .card-foot > .muted { min-width: 0; font-size: .78rem; }
+  .compact .card-foot > .btn { flex: none; padding: 6px 12px; font-size: .88rem; }
+
+  /* my answer: flatter rows */
+  .compact .answer-who { padding-bottom: 8px; }
+  .compact .answer-block { padding: 6px 0; }
+  .compact .slot-block-head { margin-bottom: 4px; font-size: .9rem; }
+  .compact .slot-block + .slot-block { margin-top: 4px; padding-top: 6px; }
+  .compact .choice3 { gap: 6px; }
+  .compact .ans-btn { padding: 5px 2px; font-size: .85rem; }
+  .compact .comment-block .field-label { margin-bottom: 4px; }
+
+  /* all answers: narrower name column, smaller cells */
+  .compact .matrix2 th, .compact .matrix2 td { padding: 4px 4px; }
+  .compact .person { min-width: 92px; gap: 6px; }
+  .compact .person small { display: none; }
+  .compact .person .avatar { width: 22px; height: 22px; font-size: .66rem; }
+  .compact .mc { width: 28px; height: 24px; }
+  .compact .mhead strong { font-size: .85rem; }
+  .compact .mfoot .gbar { min-width: 40px; }
+  .compact .legend-chips { margin-top: 8px; gap: 6px; }
+  .compact .comments-wrap { margin-top: 10px; padding-top: 10px; }
+}
