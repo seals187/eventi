@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - “My answer”: the comment field is one line high (like the example text) and grows with longer comments
+- Settings chips on the start page keep their width when the value changes (space for the longest value
+  is reserved); German chip label “Nach Antwort” instead of “Nach Abstimmung”
 
 ## [0.0.5] – 2026-11-23
 

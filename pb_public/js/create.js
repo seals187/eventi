@@ -266,17 +266,21 @@ function templateBar() {
 // Settings as compact chips: "Results: Everyone ›", "Editable: Yes ›", "Account: No ›", "Closes: Never ›"
 function settingsChips() {
   const s = state.settings;
-  const chip = (label, value) => [h("span", { class: "muted" }, `${label}:`), " ", h("strong", {}, value), icon("right")];
+  // The value cell stacks all possible values (only the current one visible), so a chip keeps its width
+  // when the value changes (e.g. "Yes" -> "No")
+  const chip = (label, value, options = [value]) => [h("span", { class: "muted" }, `${label}:`), " ",
+    h("span", { class: "chip-val" }, [...new Set([value, ...options])].map((v) => h("strong", v === value ? {} : { class: "ghost", "aria-hidden": "true" }, v))),
+    icon("right")];
   const toggle = (label, prop, title) => h("button", {
     type: "button", class: "set-chip", "aria-pressed": String(s[prop]), title,
     onclick: () => {
       s[prop] = !s[prop];
       render();
     },
-  }, chip(label, t(s[prop] ? "set.yes" : "set.no")));
+  }, chip(label, t(s[prop] ? "set.yes" : "set.no"), [t("set.yes"), t("set.no")]));
 
   const results = h("details", { class: "menu set-menu" },
-    h("summary", { class: "set-chip" }, chip(t("set.results"), t(`set.results_${s.results}`))),
+    h("summary", { class: "set-chip" }, chip(t("set.results"), t(`set.results_${s.results}`), ["always", "after_vote", "hidden"].map((v) => t(`set.results_${v}`)))),
     h("div", { class: "menu-pop menu-left" },
       h("p", { class: "menu-title" }, t("settings.results")),
       ["always", "after_vote", "hidden"].map((v) => h("button", {
@@ -288,7 +292,7 @@ function settingsChips() {
 
   const closeLabel = state.closes_at ? fmtDate(new Date(state.closes_at), { dateStyle: "short", timeStyle: "short" }) : t("settings.never");
   const closes = h("details", { class: "menu set-menu" },
-    h("summary", { class: "set-chip" }, chip(t("set.closes"), closeLabel)),
+    h("summary", { class: "set-chip" }, chip(t("set.closes"), closeLabel, [t("settings.never"), fmtDate(new Date(2026, 11, 31, 23, 59), { dateStyle: "short", timeStyle: "short" })])),
     h("div", { class: "menu-pop menu-left menu-form" },
       h("p", { class: "menu-title" }, t("settings.closes_at")),
       h("input", {

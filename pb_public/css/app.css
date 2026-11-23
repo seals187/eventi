@@ -1266,3 +1266,8 @@ main.wrap.wide { max-width: 1180px; }
 
 /* "my answer": comment field one line high, grows with the text */
 textarea.comment-input { resize: none; overflow: hidden; min-height: 0; line-height: 1.4; padding: 8px 12px; }
+
+/* settings chips: stacked values keep the chip width constant */
+.chip-val { display: inline-grid; justify-items: start; }
+.chip-val > * { grid-area: 1 / 1; }
+.chip-val > .ghost { visibility: hidden; }
