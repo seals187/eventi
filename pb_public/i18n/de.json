@@ -381,5 +381,10 @@
   "start.template": "Vorlage",
   "start.change": "Ändern",
   "start.remove_template": "Vorlage entfernen",
-  "create.add_question": "+ Frage:"
+  "create.add_question": "+ Frage:",
+
+  "zoom.label": "Anzeigegröße: {n} %",
+  "zoom.out": "Kleiner ({n} %)",
+  "zoom.in": "Größer ({n} %)",
+  "zoom.reset": "Zurück auf 100 %"
 }

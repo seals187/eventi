@@ -1144,3 +1144,14 @@ input.q-label:hover { border-bottom-color: var(--border); }
 .cal-day.sel { border-radius: 9px; }
 
 .btn-primary:disabled { background: var(--surface-2); border-color: var(--surface-2); color: var(--muted); opacity: 1; }
+
+/* header: UI zoom control (− 90% +) left of the account menu */
+.zoom-ctl { display: inline-flex; align-items: center; height: 34px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.zoom-btn, .zoom-val { height: 100%; padding: 0 10px; font: inherit; font-weight: 600; color: var(--text); background: transparent; border: 0; cursor: pointer; }
+.zoom-btn { font-size: 1.05rem; line-height: 1; }
+.zoom-val { padding: 0 4px; font-size: .78rem; color: var(--muted); }
+.zoom-btn:hover:not(:disabled), .zoom-val:hover { background: var(--surface-2); }
+.zoom-btn:disabled { opacity: .35; cursor: default; }
+@media (max-width: 480px) {
+  .zoom-btn { padding: 0 8px; }
+}

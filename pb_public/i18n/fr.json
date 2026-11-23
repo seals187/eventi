@@ -381,5 +381,10 @@
   "start.template": "modèle",
   "start.change": "Modifier",
   "start.remove_template": "Retirer le modèle",
-  "create.add_question": "+ Question :"
+  "create.add_question": "+ Question :",
+
+  "zoom.label": "Taille d’affichage : {n} %",
+  "zoom.out": "Plus petit ({n} %)",
+  "zoom.in": "Plus grand ({n} %)",
+  "zoom.reset": "Revenir à 100 %"
 }

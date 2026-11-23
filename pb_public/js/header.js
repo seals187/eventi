@@ -1,8 +1,45 @@
-import { h, mySurveys, removeMySurvey, adminUrl, iconBtn, icon } from "./util.js";
+import { h, mySurveys, removeMySurvey, adminUrl, iconBtn, icon, store, setChildren } from "./util.js";
 import { t, fmtDate, onLangChange, setLang, currentLang } from "./i18n.js";
 import { api, currentUser, isAdmin, refreshSession, clearSession } from "./api.js";
 
 let serverSurveys = [];
+
+// --- UI zoom (per browser): 70 % .. 110 % in 5 % steps, applied with CSS zoom on <html> ----
+const ZOOM_KEY = "eventi:zoom";
+const ZOOM_MIN = 70, ZOOM_MAX = 110, ZOOM_STEP = 5;
+let zoom = Number(store.get(ZOOM_KEY)) || 100;
+
+function applyZoom() {
+  zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(zoom / ZOOM_STEP) * ZOOM_STEP));
+  document.documentElement.style.zoom = zoom === 100 ? "" : String(zoom / 100);
+}
+// Apply as early as possible (module load), before the page renders its content
+applyZoom();
+
+function setZoom(delta) {
+  zoom += delta;
+  applyZoom();
+  if (zoom === 100) store.del(ZOOM_KEY);
+  else store.set(ZOOM_KEY, zoom);
+  renderZoom();
+}
+
+// "− +" buttons left of the account menu
+function renderZoom() {
+  let slot = document.getElementById("zoom-ctl");
+  const account = document.getElementById("account-menu");
+  if (!slot && account) {
+    slot = h("div", { id: "zoom-ctl", class: "zoom-ctl", role: "group" });
+    account.before(slot);
+  }
+  if (!slot) return;
+  slot.setAttribute("aria-label", t("zoom.label", { n: zoom }));
+  slot.title = t("zoom.label", { n: zoom });
+  setChildren(slot,
+    h("button", { type: "button", class: "zoom-btn", disabled: zoom <= ZOOM_MIN, "aria-label": t("zoom.out", { n: zoom - ZOOM_STEP }), title: t("zoom.out", { n: zoom - ZOOM_STEP }), onclick: () => setZoom(-ZOOM_STEP) }, "−"),
+    zoom !== 100 && h("button", { type: "button", class: "zoom-val", "aria-label": t("zoom.reset"), title: t("zoom.reset"), onclick: () => setZoom(100 - zoom) }, `${zoom}%`),
+    h("button", { type: "button", class: "zoom-btn", disabled: zoom >= ZOOM_MAX, "aria-label": t("zoom.in", { n: zoom + ZOOM_STEP }), title: t("zoom.in", { n: zoom + ZOOM_STEP }), onclick: () => setZoom(ZOOM_STEP) }, "+"));
+}
 
 // Own surveys of the logged-in account (newest first), loaded by initHeader()
 export const ownSurveys = () => serverSurveys;
@@ -32,6 +69,7 @@ export async function initHeader() {
 
 function renderHeader() {
   renderMineMenu();
+  renderZoom();
   renderAccountMenu();
 }
 

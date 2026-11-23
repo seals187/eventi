@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Display size control in the header (− / +, left of the account menu): 70 % to 110 % in 5 % steps,
+  click the percentage to reset; stored per browser
+
 ## [0.0.2] – 2026-11-23
 
 ### Changed

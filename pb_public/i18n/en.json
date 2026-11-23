@@ -381,5 +381,10 @@
   "start.template": "template",
   "start.change": "Change",
   "start.remove_template": "Remove template",
-  "create.add_question": "+ Question:"
+  "create.add_question": "+ Question:",
+
+  "zoom.label": "Display size: {n} %",
+  "zoom.out": "Smaller ({n} %)",
+  "zoom.in": "Larger ({n} %)",
+  "zoom.reset": "Reset to 100 %"
 }
