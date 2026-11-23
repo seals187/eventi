@@ -4,6 +4,9 @@ import { api, currentUser, isAdmin, refreshSession, clearSession } from "./api.j
 
 let serverSurveys = [];
 
+// Own surveys of the logged-in account (newest first), loaded by initHeader()
+export const ownSurveys = () => serverSurveys;
+
 // Renews the session, then renders the header menus. Pages await this before
 // rendering, so currentUser() is up to date.
 export async function initHeader() {

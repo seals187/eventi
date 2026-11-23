@@ -2,6 +2,15 @@ FROM alpine:3.22
 
 ARG PB_VERSION=0.40.5
 ARG TARGETARCH=amd64
+ARG EVENTI_VERSION=dev
+
+LABEL org.opencontainers.image.title="eventi" \
+      org.opencontainers.image.description="Self-hosted polls and date finding with accounts, invitations and reminders" \
+      org.opencontainers.image.source="https://github.com/seals187/eventi" \
+      org.opencontainers.image.licenses="AGPL-3.0-only" \
+      org.opencontainers.image.version="${EVENTI_VERSION}"
+
+ENV EVENTI_VERSION=${EVENTI_VERSION}
 
 RUN apk add --no-cache ca-certificates tzdata \
  && adduser -D -H -u 1000 eventi \

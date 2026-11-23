@@ -1,13 +1,14 @@
-import { h, toast, iconBtn, icon, setChildren } from "./util.js";
+// "Participants" card on the admin page: who has voted (green chips), invited people who
+// have not voted yet (dashed chips), invite form and reminders.
+// State lives in the module, so typed addresses survive re-renders (realtime updates).
+import { h, toast, icon, setChildren } from "./util.js";
 import { t, appConfig, fmtDate } from "./i18n.js";
 import { api, errMsg } from "./api.js";
 
-// "Invited people" card on the admin page: invite by email, see who has voted, remind.
-// State lives in the module, so typed addresses survive re-renders (realtime updates).
-
-let ctx = null;          // { id, key, survey }
-let list = [];
+let ctx = null;          // { id, key, survey, responses, onChange }
+let list = [];           // invitations
 let draft = "";
+let formOpen = false;
 let box = null;
 let busy = false;
 
@@ -19,11 +20,21 @@ export async function loadInvites(id, key) {
   }
 }
 
-export function invitesCard(c) {
+// Invited people who have not voted yet
+export const pendingInvites = () => list.filter((i) => !i.voted);
+
+export function participantsCard(c) {
   ctx = c;
-  box = h("section", { class: "card invites" });
+  box = h("section", { class: "card participants", id: "participants" });
   paint();
   return box;
+}
+
+export function openInviteForm() {
+  formOpen = true;
+  paint();
+  box?.scrollIntoView({ behavior: "smooth", block: "center" });
+  requestAnimationFrame(() => box?.querySelector("textarea")?.focus());
 }
 
 async function run(fn) {
@@ -37,6 +48,7 @@ async function run(fn) {
   } finally {
     busy = false;
     paint();
+    ctx.onChange?.();
   }
 }
 
@@ -44,14 +56,8 @@ function paint() {
   if (!box) return;
   const s = ctx.survey;
   const mail = appConfig().mail;
-  const voted = list.filter((i) => i.voted).length;
-  const open = list.length - voted;
-
-  const ta = h("textarea", {
-    rows: 2, value: draft, disabled: !mail || s.is_closed,
-    placeholder: t("invites.placeholder"), "aria-label": t("invites.add"),
-    oninput: (e) => (draft = e.target.value),
-  });
+  const pending = pendingInvites();
+  const canInvite = mail && !s.is_closed;
 
   const add = () => run(async () => {
     if (!draft.trim()) return;
@@ -62,7 +68,7 @@ function paint() {
   });
 
   const remind = () => run(async () => {
-    if (!confirm(t("invites.remind_confirm", { n: open }))) return;
+    if (!confirm(t("invites.remind_confirm", { n: pending.length }))) return;
     const r = await api.remind(ctx.id, ctx.key);
     list = r.invitations;
     toast(r.queued ? t("invites.reminded", { n: r.queued }) : t("invites.reminded_none"));
@@ -74,33 +80,38 @@ function paint() {
     list = list.filter((x) => x.id !== inv.id);
   });
 
-  const status = (inv) => {
-    if (inv.voted) return h("span", { class: "pill pill-open" }, t("invites.voted"));
-    if (inv.remind_queued) return h("span", { class: "pill" }, t("invites.remind_queued"));
-    if (inv.reminded_at) return h("span", { class: "pill pill-pending" }, t("invites.reminded_at", { date: fmtDate(new Date(inv.reminded_at), { dateStyle: "short" }) }));
-    if (!inv.invite_sent) return h("span", { class: "pill" }, t("invites.queued"));
-    return h("span", { class: "pill pill-pending" }, t("invites.open"));
-  };
+  const pendingTitle = (inv) => [
+    inv.email,
+    !inv.invite_sent ? t("invites.queued") : inv.remind_queued ? t("invites.remind_queued")
+      : inv.reminded_at ? t("invites.reminded_at", { date: fmtDate(new Date(inv.reminded_at), { dateStyle: "short" }) }) : t("invites.open"),
+  ].join(" · ");
+
+  const ta = h("textarea", {
+    rows: 2, value: draft, placeholder: t("invites.placeholder"), "aria-label": t("invites.add"),
+    oninput: (e) => (draft = e.target.value),
+  });
 
   setChildren(box,
     h("div", { class: "card-head" },
-      h("h2", {}, t("invites.title")),
-      list.length > 0 && h("span", { class: "muted small" }, t("invites.progress", { n: voted, total: list.length }))),
-    !mail && h("p", { class: "notice" }, t("invites.no_mail")),
-    list.length > 0 && h("div", { class: "stack invite-progress", "aria-hidden": "true" },
-      h("span", { class: "stack-yes", style: `width:${(voted / list.length) * 100}%` })),
-    list.length > 0 && h("ul", { class: "plist invite-list" }, list.map((inv) =>
-      h("li", {},
-        h("span", { class: "plist-name" }, inv.name || inv.email, inv.name && h("small", { class: "muted" }, ` ${inv.email}`)),
-        status(inv),
-        iconBtn(icon("x"), t("invites.remove"), busy, () => remove(inv))))),
-    mail && !s.is_closed && h("div", { class: "invite-add" },
-      ta,
-      h("button", { type: "button", class: "btn btn-primary", disabled: busy, onclick: add }, icon("mail"), t("invites.add"))),
-    mail && !s.is_closed && h("small", { class: "hint" }, t("invites.hint")),
-    mail && list.length > 0 && !s.is_closed && h("div", { class: "btn-row" },
-      h("button", { type: "button", class: "btn", disabled: busy || open === 0, onclick: remind },
-        icon("mail"), open > 0 ? t("invites.remind", { n: open }) : t("invites.all_voted"))),
-    mail && list.length > 0 && !s.is_closed && h("p", { class: "muted small auto-remind" },
-      s.closes_at ? t("invites.auto_on") : t("invites.auto_off")));
+      h("h2", {}, t("part.title")),
+      canInvite && h("button", { type: "button", class: "btn-link", onclick: () => (formOpen ? ((formOpen = false), paint()) : openInviteForm()) },
+        icon("mail"), " ", t("invites.add"))),
+    !ctx.responses.length && !list.length && h("p", { class: "muted small" }, t("part.none")),
+    h("div", { class: "pchips" },
+      ctx.responses.map((r) => h("span", { class: "pchip pchip-voted", title: r.name }, ICON_CHECK(), r.name)),
+      pending.map((inv) => h("span", { class: "pchip pchip-pending", title: pendingTitle(inv) },
+        "… ", inv.name || inv.email,
+        h("button", { type: "button", class: "pchip-x", disabled: busy, "aria-label": `${t("invites.remove")}: ${inv.email}`, onclick: () => remove(inv) }, icon("x"))))),
+    !mail && formOpen && h("p", { class: "notice" }, t("invites.no_mail")),
+    canInvite && formOpen && h("div", { class: "invite-form" },
+      h("div", { class: "invite-add" },
+        ta,
+        h("button", { type: "button", class: "btn btn-primary", disabled: busy, onclick: add }, icon("mail"), t("invites.add"))),
+      h("small", { class: "hint" }, t("invites.hint"))),
+    canInvite && list.length > 0 && h("div", { class: "card-foot" },
+      h("span", { class: "muted small" }, s.closes_at ? t("invites.auto_on") : t("invites.auto_off")),
+      h("button", { type: "button", class: "btn", disabled: busy || !pending.length, onclick: remind },
+        icon("mail"), pending.length ? t("invites.remind", { n: pending.length }) : t("invites.all_voted"))));
 }
+
+const ICON_CHECK = () => h("span", { class: "pchip-ic", "aria-hidden": "true" }, "✓");

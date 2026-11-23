@@ -2,12 +2,12 @@
 # Runs all API tests in isolated Docker containers:
 #   - builds the image as eventi:test
 #   - starts Mailpit (test mail server) and eventi on their own network
-#   - runs tests/smoke.sh and tests/mail.sh
+#   - runs tests/smoke.sh and tests/mail.sh, then adds a demo poll (tests/seed-demo.sh)
 #   - leaves both containers running for manual testing (remove them with CLEAN=1,
 #     or later: docker rm -f eventi-test eventi-mailpit)
 # Does not touch your .env, your running eventi container or its data volume.
 #
-#   bash tests/docker-test.sh
+#   bash tests/docker-test.sh            # NO_DEMO=1 skips the demo poll
 set -u
 cd "$(dirname "$0")/.."
 
@@ -20,10 +20,10 @@ ADMIN_PASSWORD=adminpass123
 cleanup() {
   if [ "${CLEAN:-}" != 1 ]; then
     echo
-    echo "Test-Container laeuft weiter:"
-    echo "  eventi   http://127.0.0.1:$PORT   (Admin: $ADMIN_EMAIL / $ADMIN_PASSWORD)"
-    echo "  Mailpit  http://127.0.0.1:$MAILPIT_PORT   (alle Mails inkl. Login-Codes)"
-    echo "  Stoppen: docker rm -f eventi-test eventi-mailpit"
+    echo "Test containers keep running:"
+    echo "  eventi   http://127.0.0.1:$PORT   (admin: $ADMIN_EMAIL / $ADMIN_PASSWORD)"
+    echo "  Mailpit  http://127.0.0.1:$MAILPIT_PORT   (all emails incl. sign-in codes)"
+    echo "  Stop:    docker rm -f eventi-test eventi-mailpit"
     return
   fi
   docker rm -f eventi-test eventi-mailpit >/dev/null 2>&1
@@ -32,7 +32,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "== Build"
-docker build -q -t eventi:test . >/dev/null || exit 1
+docker build -q --build-arg EVENTI_VERSION="$(cat VERSION)-test" -t eventi:test . >/dev/null || exit 1
 docker rm -f eventi-test eventi-mailpit >/dev/null 2>&1
 docker network create "$NET" >/dev/null 2>&1
 
@@ -50,6 +50,11 @@ export BASE="http://127.0.0.1:$PORT" MAILPIT="http://127.0.0.1:$MAILPIT_PORT" AD
 status=0
 echo; echo "######## smoke.sh"; bash tests/smoke.sh || status=1
 echo; echo "######## mail.sh";  bash tests/mail.sh  || status=1
+
+# Demo data for manual testing
+if [ "${CLEAN:-}" != 1 ] && [ "${NO_DEMO:-}" != 1 ]; then
+  echo; echo "######## demo data"; bash tests/seed-demo.sh || status=1
+fi
 
 echo
 docker logs eventi-test 2>&1 | grep -iE "panic|ReferenceError|TypeError|SyntaxError" && status=1

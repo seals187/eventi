@@ -1,7 +1,11 @@
-import { h, store, params, hashParams, field, toast, errorCard } from "./util.js";
-import { t, initI18n, onLangChange, fmtDate } from "./i18n.js";
+// Voting page (s.html): tabs "Overview", "My answer" and "All answers".
+import { h, store, params, hashParams, toast, errorCard, icon, setChildren } from "./util.js";
+import { t, initI18n, onLangChange, fmtDate, slotParts } from "./i18n.js";
 import { api, errMsg, subscribe, currentUser, setInviteToken } from "./api.js";
-import { renderResults, finalBanner, slotLabel, ICON } from "./results.js";
+import {
+  ICON, avatar, statusPills, favoriteCard, scheduleOverview, choiceOverview, textOverview,
+  scheduleMatrix, choiceMatrix, commentsList, legend, sortResponses, exportCsv, finalBanner,
+} from "./results.js";
 import { initHeader, loginUrl } from "./header.js";
 
 const app = document.getElementById("app");
@@ -20,9 +24,11 @@ setInviteToken(inviteToken);
 
 let data = null;
 let mine = store.get(MINE_KEY); // { id, key } of own response
-let draft = null;               // { name, answers } being edited
-let editing = false;
+let draft = null;               // { name, answers, comment } being edited
 let dirty = false;
+// Active tab: "overview" | "mine" | "all" (deep link: s.html?id=…&tab=all)
+let tab = ["overview", "mine", "all"].includes(params.get("tab")) ? params.get("tab") : null;
+let sortBy = "date";
 const els = {};
 
 async function load() {
@@ -51,8 +57,8 @@ function fixedName() {
 
 function initDraft() {
   draft = data.mine
-    ? { name: data.mine.name, answers: structuredClone(data.mine.answers) }
-    : { name: data.invitation?.name || store.get(NAME_KEY) || currentUser()?.display_name || "", answers: {} };
+    ? { name: data.mine.name, answers: structuredClone(data.mine.answers), comment: data.mine.comment || "" }
+    : { name: data.invitation?.name || store.get(NAME_KEY) || currentUser()?.display_name || "", answers: {}, comment: "" };
   if (data.survey.settings.require_login) draft.name = fixedName();
   for (const q of data.survey.questions) {
     if (q.type !== "schedule") continue;
@@ -61,153 +67,222 @@ function initDraft() {
     // in a new answer, slots stay unselected until clicked (and still count as "no").
     if (data.mine) for (const slot of q.slots) draft.answers[q.id][slot] ||= "no";
   }
+  dirty = false;
 }
 
+const withFinal = (q) => ({ ...q, final: data.survey.final[q.id] });
+const canChange = () => !data.survey.is_closed && (!data.mine || data.survey.settings.allow_edit);
+const needsLogin = () => data.survey.settings.require_login && !currentUser() && !data.invitation && !data.mine;
+
+// --- layout ------------------------------------------------------------------------
+
 function render() {
-  document.title = `${data.survey.title} · eventi`;
-  els.head = h("div");
-  els.form = h("div");
-  els.results = h("div");
-  app.replaceChildren(els.head, els.form, els.results);
+  const s = data.survey;
+  document.title = `${s.title} · eventi`;
+  if (!tab) tab = data.mine || s.is_closed ? "overview" : "mine";
+  els.head = h("div", { class: "page-head" });
+  els.tabs = h("div", { class: "tabs", role: "tablist" });
+  els.body = h("div", { class: "tab-body" });
+  app.replaceChildren(els.head, els.tabs, els.body);
   renderHead();
-  renderForm();
-  renderRes();
+  renderTabs();
+  renderBody();
 }
 
 function renderHead() {
   const s = data.survey;
-  els.head.replaceChildren(
-    h("section", { class: "card" },
-      h("h1", {}, s.title),
-      s.description && h("p", { class: "desc" }, s.description),
-      h("div", { class: "meta" },
-        h("span", { class: "pill" }, t("vote.participants", { n: data.count })),
-        s.is_closed
-          ? h("span", { class: "pill pill-closed" }, t("status.closed"))
-          : s.closes_at && h("span", { class: "pill" }, t("status.closes", { date: fmtDate(new Date(s.closes_at), { dateStyle: "medium", timeStyle: "short" }) })))),
-    finalBanner(s));
+  setChildren(els.head,
+    statusPills(s, t("vote.participants", { n: data.count })),
+    h("h1", { class: "page-title" }, s.title),
+    s.description && h("p", { class: "desc lead" }, s.description));
 }
 
-function renderForm() {
-  const s = data.survey;
-  const el = els.form;
-  el.replaceChildren();
-  const canChange = !s.is_closed && s.settings.allow_edit;
+function renderTabs() {
+  const item = (key, label) => h("button", {
+    type: "button", role: "tab", class: "tab", "aria-selected": String(tab === key),
+    onclick: () => switchTab(key),
+  }, label);
+  setChildren(els.tabs, item("overview", t("tabs.overview")), item("mine", t("tabs.mine")), item("all", t("tabs.all")));
+}
 
-  if (data.mine && !editing) {
-    el.append(h("section", { class: "card voted" },
-      h("p", {}, `✅ ${t("vote.voted_as", { name: data.mine.name })}`),
-      canChange && h("div", { class: "btn-row" },
-        h("button", {
-          type: "button", class: "btn",
-          onclick: () => {
-            editing = true;
-            initDraft();
-            renderForm();
-          },
-        }, t("vote.edit")),
-        h("button", { type: "button", class: "btn btn-ghost danger", onclick: deleteMine }, t("vote.delete")))));
-    return;
+function switchTab(key) {
+  if (tab === "mine" && key !== "mine" && dirty && !confirm(t("vote.discard"))) return;
+  if (key === "mine") initDraft();
+  tab = key;
+  renderTabs();
+  renderBody();
+}
+
+function renderBody() {
+  if (tab === "mine") renderMine();
+  else if (tab === "all") renderAll();
+  else renderOverview();
+}
+
+// --- overview ------------------------------------------------------------------------
+
+function hiddenResults() {
+  const key = data.survey.settings.results === "after_vote" ? "results.after_vote" : "results.hidden";
+  return h("section", { class: "card" }, h("p", { class: "muted" }, t(key)));
+}
+
+function votedFooter() {
+  const s = data.survey;
+  if (data.mine) {
+    return h("div", { class: "card-foot" },
+      h("span", { class: "muted small" }, t("ov.voted_as", { name: data.mine.name, date: fmtDate(new Date(data.mine.created), { dateStyle: "short", timeStyle: "short" }) })),
+      canChange() && h("button", { type: "button", class: "btn", onclick: () => switchTab("mine") }, t("vote.edit")));
   }
-  if (s.is_closed) {
-    el.append(h("section", { class: "card" }, h("p", { class: "muted" }, t("vote.closed_info"))));
-    return;
+  if (s.is_closed) return h("div", { class: "card-foot" }, h("span", { class: "muted small" }, t("vote.closed_info")));
+  return h("div", { class: "card-foot" },
+    h("span", { class: "muted small" }, t("ov.not_voted")),
+    h("button", { type: "button", class: "btn btn-primary", onclick: () => switchTab("mine") }, t("ov.vote_now")));
+}
+
+function renderOverview() {
+  const s = data.survey;
+  const out = [];
+  const banner = finalBanner(s);
+  if (!data.can_see_results) {
+    out.push(banner, hiddenResults(), h("section", { class: "card" }, votedFooter()));
+    return setChildren(els.body, out);
   }
-  if (s.settings.require_login && !currentUser() && !data.invitation) {
-    el.append(h("section", { class: "card login-needed" },
+  const responses = data.responses;
+  const schedules = s.questions.filter((q) => q.type === "schedule");
+  if (schedules.length && responses.length) {
+    for (const q of schedules) out.push(favoriteCard(s, q, responses, { several: schedules.length > 1 }));
+  } else {
+    out.push(banner);
+  }
+  const several = s.questions.length > 1;
+  const card = h("section", { class: "card" },
+    !responses.length && h("p", { class: "muted" }, t("results.empty")),
+    responses.length > 0 && s.questions.map((q) => {
+      const title = several || q.type !== "schedule" ? q.label : null;
+      if (q.type === "schedule") return scheduleOverview(withFinal(q), responses, data.mine, title);
+      if (q.type === "choice") return choiceOverview(q, responses, data.mine, title);
+      return textOverview(q, responses, title);
+    }),
+    votedFooter());
+  out.push(card);
+  setChildren(els.body, out);
+}
+
+// --- my answer -------------------------------------------------------------------------
+
+function renderMine() {
+  const s = data.survey;
+  if (needsLogin()) {
+    return setChildren(els.body, h("section", { class: "card login-needed" },
       h("p", {}, t("vote.login_required")),
       h("a", { class: "btn btn-primary", href: loginUrl() }, t("auth.login"))));
-    return;
   }
-
+  if (!data.mine && s.is_closed) {
+    return setChildren(els.body, h("section", { class: "card" }, h("p", { class: "muted" }, t("vote.closed_info"))));
+  }
   if (!draft) initDraft();
+  const editable = canChange();
   const err = h("p", { class: "error", role: "alert" });
+
+  const who = data.mine
+    ? h("div", { class: "answer-who" }, avatar(data.mine.name, "avatar-me avatar-lg"),
+      h("div", {},
+        h("strong", {}, t("mine.title")),
+        h("small", { class: "muted" }, t("ov.voted_as", { name: data.mine.name, date: fmtDate(new Date(data.mine.created), { dateStyle: "short", timeStyle: "short" }) }))))
+    : h("div", { class: "answer-who" }, avatar(draft.name || "?", "avatar-me avatar-lg"),
+      h("div", { class: "answer-who-main" },
+        h("strong", {}, t("mine.title")),
+        s.settings.require_login
+          ? h("small", { class: "muted" }, t("vote.as_account", { name: draft.name }))
+          : h("input", {
+            type: "text", class: "name-input", maxlength: 60, value: draft.name, autocomplete: "name",
+            placeholder: t("vote.name_ph"), "aria-label": t("vote.name"),
+            oninput: (e) => {
+              draft.name = e.target.value;
+              dirty = true;
+            },
+          }),
+        data.invitation && h("small", { class: "muted" }, t("vote.invited_as", { email: data.invitation.email }))));
+
   const form = h("form", {
-    class: "vote-form", novalidate: true,
+    class: "card answer-card", novalidate: true,
     onsubmit: (e) => {
       e.preventDefault();
       submit(form, err);
     },
-  });
-  form.append(h("section", { class: "card" },
-    s.settings.require_login
-      ? h("p", { class: "as-account" }, t("vote.as_account", { name: draft.name }))
-      : field(t("vote.name"), h("input", {
-      type: "text", maxlength: 60, value: draft.name, autocomplete: "name", placeholder: t("vote.name_ph"),
+  },
+  who,
+  s.questions.map((q) => questionInput(q, editable, s.questions.length > 1)),
+  h("label", { class: "answer-block" },
+    h("span", { class: "field-label muted" }, t("mine.comment")),
+    h("textarea", {
+      rows: 2, maxlength: 1000, value: draft.comment, disabled: !editable, placeholder: t("mine.comment_ph"),
       oninput: (e) => {
-        draft.name = e.target.value;
+        draft.comment = e.target.value;
         dirty = true;
       },
     })),
-    data.invitation && h("small", { class: "hint" }, t("vote.invited_as", { email: data.invitation.email }))));
-  for (const q of s.questions) form.append(questionInput(q));
-  form.append(err, h("div", { class: "btn-row" },
-    h("button", { type: "submit", class: "btn btn-primary btn-lg" }, t(data.mine ? "vote.save" : "vote.submit")),
-    data.mine && h("button", {
-      type: "button", class: "btn btn-ghost",
-      onclick: () => {
-        editing = false;
-        dirty = false;
-        draft = null;
-        renderForm();
-      },
-    }, t("action.cancel"))));
-  el.append(form);
+  err,
+  editable && h("div", { class: "card-foot" },
+    data.mine
+      ? h("button", { type: "button", class: "btn-link danger", onclick: deleteMine }, t("vote.delete"))
+      : h("span"),
+    h("button", { type: "submit", class: "btn btn-primary btn-lg" }, t(data.mine ? "vote.save" : "vote.submit"))),
+  !editable && h("p", { class: "muted small" }, t(s.is_closed ? "vote.closed_info" : "err.edit_disabled")));
+  setChildren(els.body, form);
 }
 
-function questionInput(q) {
-  const card = h("section", { class: "card q" },
-    h("h2", { class: "q-title" }, q.label, q.required && h("span", { class: "req", title: t("create.required") }, " *")));
+function questionInput(q, editable, several) {
+  const block = h("div", { class: "answer-block" },
+    (several || q.type !== "schedule") && h("h3", { class: "q-title" }, q.label, q.required && h("span", { class: "req", title: t("create.required") }, " *")));
 
-  if (q.type === "choice") {
-    const cur = draft.answers[q.id] || [];
-    if (q.multi) card.append(h("p", { class: "hint" }, t("vote.multi_hint")));
-    card.append(h("div", { class: "choices" }, q.options.map((o) =>
-      h("label", { class: "choice" },
-        h("input", {
-          type: q.multi ? "checkbox" : "radio", name: q.id, value: o, checked: cur.includes(o),
-          onchange: () => {
-            draft.answers[q.id] = [...card.querySelectorAll("input:checked")].map((i) => i.value);
-            dirty = true;
-          },
-        }),
-        h("span", {}, o)))));
-  } else if (q.type === "schedule") {
+  if (q.type === "schedule") {
     const ans = draft.answers[q.id];
     const states = q.maybe ? ["yes", "maybe", "no"] : ["yes", "no"];
-    card.append(h("p", { class: "hint legend" },
-      states.map((v) => h("span", {}, h("span", { class: `dot dot-${v}` }), t(`answer.${v}`)))));
-    card.append(h("div", { class: "slots" }, q.slots.map((slot) => {
-      const row = h("div", { class: "slot-row" });
-      const paint = () => {
-        const cur = ans[slot] || "";
-        if (cur) row.dataset.state = cur;
-        else delete row.dataset.state;
-        row.querySelectorAll(".seg-btn").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === cur)));
-      };
-      row.append(slotLabel(slot), h("div", { class: "seg", role: "group" }, states.map((v) =>
-        h("button", {
-          type: "button", class: `seg-btn seg-${v}`, "data-v": v, title: t(`answer.${v}`), "aria-label": t(`answer.${v}`),
+    for (const slot of q.slots) {
+      const p = slotParts(slot);
+      const row = h("div", { class: "slot-block" },
+        h("div", { class: "slot-block-head" }, h("strong", {}, p.day), h("span", { class: "muted" }, p.time)));
+      const btns = h("div", { class: `choice3 n${states.length}`, role: "group", "aria-label": `${p.day} ${p.time}` });
+      const paint = () => btns.querySelectorAll(".ans-btn").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === ans[slot])));
+      for (const v of states) {
+        btns.append(h("button", {
+          type: "button", class: `ans-btn ans-${v}`, "data-v": v, disabled: !editable,
           onclick: () => {
             // Explicit "no" is kept for display only; the server stores yes/maybe and treats the rest as no
             ans[slot] = v;
             dirty = true;
             paint();
           },
-        }, ICON[v]))));
+        }, ICON[v], " ", t(`answer.${v}`)));
+      }
       paint();
-      return row;
-    })));
+      row.append(btns);
+      block.append(row);
+    }
+  } else if (q.type === "choice") {
+    const cur = draft.answers[q.id] || [];
+    if (q.multi) block.append(h("p", { class: "hint" }, t("vote.multi_hint")));
+    block.append(h("div", { class: "choices" }, q.options.map((o) =>
+      h("label", { class: "choice" },
+        h("input", {
+          type: q.multi ? "checkbox" : "radio", name: q.id, value: o, checked: cur.includes(o), disabled: !editable,
+          onchange: () => {
+            draft.answers[q.id] = [...block.querySelectorAll("input:checked")].map((i) => i.value);
+            dirty = true;
+          },
+        }),
+        h("span", {}, o)))));
   } else {
-    card.append(h("textarea", {
-      rows: 3, maxlength: 2000, value: draft.answers[q.id] || "", "aria-label": q.label,
+    block.append(h("textarea", {
+      rows: 3, maxlength: 2000, value: draft.answers[q.id] || "", "aria-label": q.label, disabled: !editable,
       oninput: (e) => {
         draft.answers[q.id] = e.target.value;
         dirty = true;
       },
     }));
   }
-  return card;
+  return block;
 }
 
 function isEmpty(q, a) {
@@ -219,7 +294,7 @@ function isEmpty(q, a) {
 async function submit(form, err) {
   const btn = form.querySelector("[type=submit]");
   const name = draft.name.trim();
-  if (!name) {
+  if (!name && !data.survey.settings.require_login) {
     err.textContent = t("err.name_required");
     return;
   }
@@ -231,7 +306,7 @@ async function submit(form, err) {
   err.textContent = "";
   btn.disabled = true;
   try {
-    const body = { name, answers: draft.answers };
+    const body = { name, answers: draft.answers, comment: draft.comment.trim() };
     if (data.mine) {
       await api.updateVote(mine.id, mine.key, body);
     } else {
@@ -240,13 +315,13 @@ async function submit(form, err) {
       store.set(MINE_KEY, mine);
     }
     if (!data.survey.settings.require_login) store.set(NAME_KEY, name);
-    editing = false;
     dirty = false;
     draft = null;
     await load();
+    tab = "overview";
     render();
     toast(t("vote.thanks"));
-    els.results.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   } catch (e) {
     err.textContent = errMsg(e);
   } finally {
@@ -262,32 +337,56 @@ async function deleteMine() {
     mine = null;
     draft = null;
     await load();
+    tab = "overview";
     render();
   } catch (e) {
     toast(errMsg(e), "err");
   }
 }
 
-function renderRes() {
-  const el = els.results;
-  el.replaceChildren();
-  if (!data.can_see_results) {
-    const key = data.survey.settings.results === "after_vote" ? "results.after_vote" : "results.hidden";
-    el.append(h("section", { class: "card" }, h("p", { class: "muted" }, t(key))));
-    return;
-  }
-  const box = h("div");
-  el.append(h("h2", { class: "section-title" }, t("results.title")), box);
-  renderResults(box, data.survey, data.responses, { mineId: mine?.id });
+// --- all answers -------------------------------------------------------------------------
+
+function renderAll() {
+  const s = data.survey;
+  if (!data.can_see_results) return setChildren(els.body, hiddenResults());
+  const responses = sortResponses(data.responses, sortBy);
+  const several = s.questions.length > 1;
+  const sortBtn = h("button", {
+    type: "button", class: "pill-btn pill-soft",
+    onclick: () => {
+      sortBy = sortBy === "name" ? "date" : "name";
+      renderAll();
+    },
+  }, t("all.sort"), " ", h("strong", {}, t(`all.sort_${sortBy}`)));
+  const csvBtn = h("button", { type: "button", class: "pill-btn pill-soft", disabled: !responses.length, onclick: () => exportCsv(s, data.responses) }, "CSV");
+
+  const card = h("section", { class: "card" },
+    h("div", { class: "card-head" },
+      h("h2", {}, t("all.title", { n: responses.length })),
+      h("div", { class: "card-head-actions" }, sortBtn, csvBtn)),
+    !responses.length && h("p", { class: "muted" }, t("results.empty")),
+    responses.length > 0 && s.questions.map((q) => {
+      if (q.type === "text") return null;
+      return h("div", { class: "all-block" },
+        several && h("h3", { class: "q-title" }, q.label),
+        q.type === "schedule" ? scheduleMatrix(withFinal(q), responses, { mineId: data.mine?.id }) : choiceMatrix(q, responses, { mineId: data.mine?.id }));
+    }),
+    responses.length > 0 && s.questions.some((q) => q.type === "schedule") && legend(s.questions.find((q) => q.type === "schedule")),
+    responses.length > 0 && s.questions.filter((q) => q.type === "text").map((q) => textOverview(q, responses, q.label)),
+    commentsList(responses));
+  setChildren(els.body, card);
 }
+
+// --- realtime ----------------------------------------------------------------------------
 
 async function refresh() {
   try {
-    const wasClosed = data.survey.is_closed;
     await load();
     renderHead();
-    renderRes();
-    if (!dirty || wasClosed !== data.survey.is_closed) renderForm();
+    // Never throw away what the user is typing
+    if (tab === "mine" && dirty) return;
+    if (tab === "mine") draft = null;
+    renderBody();
   } catch (e) {
     if (e.status === 404) app.replaceChildren(errorCard(errMsg(e)));
   }

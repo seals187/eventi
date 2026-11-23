@@ -1,7 +1,7 @@
-import { h, uid, params, hashParams, publicUrl, adminUrl, iconBtn, linkBox, errorCard, icon, toggleChip, menu, autoTextarea } from "./util.js";
+import { h, uid, params, hashParams, publicUrl, adminUrl, iconBtn, linkBox, errorCard, icon, toggleChip, menu, autoTextarea, toast } from "./util.js";
 import { t, tn, initI18n, onLangChange, fmtDate, parseSlot } from "./i18n.js";
 import { api, errMsg, currentUser } from "./api.js";
-import { initHeader, renderMineMenu, loginUrl } from "./header.js";
+import { initHeader, renderMineMenu, loginUrl, ownSurveys } from "./header.js";
 
 const app = document.getElementById("app");
 const editId = params.get("edit");
@@ -17,11 +17,48 @@ const pad = (n) => String(n).padStart(2, "0");
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const monthOf = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
 
-function newQuestion(type) {
-  const q = { id: uid(), type, label: "", required: false };
+function newQuestion(type, label = "") {
+  const q = { id: uid(), type, label, required: false };
   if (type === "choice") Object.assign(q, { options: ["", ""], multi: false });
   if (type === "schedule") Object.assign(q, { dates: {}, maybe: true, month: monthOf(new Date()) });
   return q;
+}
+
+// Templates on the start page. Labels are translated when the template is applied.
+const TEMPLATES = [
+  { key: "dinner", icon: "utensils", tags: ["schedule", "choice"], build: () => [newQuestion("schedule", t("tpl.dinner_q1")), newQuestion("choice", t("tpl.dinner_q2"))] },
+  { key: "meeting", icon: "users", tags: ["schedule"], build: () => [Object.assign(newQuestion("schedule", t("tpl.meeting_q1")), { defaultTimes: ["09:00", "14:00"] })] },
+  { key: "birthday", icon: "cake", tags: ["schedule", "text"], build: () => [newQuestion("schedule", t("tpl.birthday_q1")), newQuestion("text", t("tpl.birthday_q2"))] },
+  { key: "trip", icon: "map", tags: ["schedule", "choice"], build: () => [newQuestion("schedule", t("tpl.trip_q1")), newQuestion("choice", t("tpl.trip_q2"))] },
+  { key: "feedback", icon: "chat", tags: ["text"], build: () => [newQuestion("text", t("tpl.feedback_q1")), newQuestion("text", t("tpl.feedback_q2"))] },
+  { key: "blank", icon: "plus", tags: [], build: () => [] },
+];
+
+// Has the user already typed something into the questions?
+const questionsTouched = () => state.questions.some((q) =>
+  (q.type === "choice" && q.options.some((o) => o.trim())) || (q.type === "schedule" && Object.keys(q.dates).length));
+
+function applyTemplate(tpl) {
+  if (state.template === tpl.key) return;
+  if (questionsTouched() && !confirm(t("tpl.replace_confirm"))) return;
+  state.template = tpl.key;
+  state.questions = tpl.build();
+  render();
+  const first = app.querySelector(".q-card");
+  (first || app.querySelector(".add-grid"))?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+// Copy questions and settings of an own survey into the editor
+async function duplicate(s) {
+  try {
+    const d = await api.getSurvey(s.id, { "X-Admin-Key": s.key });
+    const copy = fromSurvey(d.survey);
+    state = { ...copy, title: copy.title, closes_at: "", template: "copy", showDesc: !!copy.description };
+    render();
+    toast(t("tpl.duplicated"));
+  } catch (e) {
+    toast(errMsg(e), "err");
+  }
 }
 
 function blank() {
@@ -31,6 +68,8 @@ function blank() {
     questions: [],
     settings: { results: "always", allow_edit: true, require_login: false },
     closes_at: "",
+    template: null,   // key of the chosen template (or "blank")
+    showDesc: false,
   };
 }
 
@@ -104,30 +143,45 @@ function render() {
   document.title = "eventi";
   if (created) return renderSuccess();
 
-  app.append(h("section", { class: "compose-head" },
+  const showDesc = state.showDesc || !!state.description;
+  app.append(h("section", { class: "card compose-card" },
     h("p", { class: "eyebrow accent" }, t(editId ? "create.eyebrow_edit" : "create.eyebrow_new")),
     h("input", {
       type: "text", class: "title-input", maxlength: 200, value: state.title,
       placeholder: t("create.title_ph"), "aria-label": t("create.survey_title"),
       oninput: (e) => (state.title = e.target.value),
     }),
-    autoTextarea({
-      class: "desc-input", maxlength: 2000, value: state.description,
-      placeholder: t("create.description_ph"), "aria-label": t("create.description"),
-      oninput: (e) => (state.description = e.target.value),
-    })));
+    showDesc
+      ? autoTextarea({
+        class: "desc-input", maxlength: 2000, value: state.description,
+        placeholder: t("create.description_ph"), "aria-label": t("create.description"),
+        oninput: (e) => (state.description = e.target.value),
+      })
+      : h("button", {
+        type: "button", class: "btn-link muted-link",
+        onclick: () => {
+          state.showDesc = true;
+          render();
+          app.querySelector(".desc-input")?.focus();
+        },
+      }, `+ ${t("create.add_description")}`)));
   if (existingCount) app.append(h("p", { class: "notice" }, t("create.edit_warning", { n: existingCount })));
+
+  if (!editId) app.append(templatesSection());
 
   app.append(h("div", { id: "questions" }));
   renderQuestions();
 
-  app.append(h("div", { class: "add-grid" }, ["schedule", "choice", "text"].map((type) =>
-    h("button", {
-      type: "button", class: "add-btn", disabled: state.questions.length >= 20,
-      onclick: () => addQuestion(type),
-    }, `+ ${t(`qtype.${type}`)}`))));
+  // The "+ Termin / + Auswahl / + Freitext" boxes appear once a start was chosen
+  if (editId || state.template || state.questions.length) {
+    app.append(h("div", { class: "add-grid" }, ["schedule", "choice", "text"].map((type) =>
+      h("button", {
+        type: "button", class: "add-btn", disabled: state.questions.length >= 20,
+        onclick: () => addQuestion(type),
+      }, icon(TYPE_ICON[type]), `+ ${t(`qtype.${type}`)}`))));
+  }
 
-  app.append(settingsCard());
+  app.append(settingsChips());
 
   const summary = h("p", { class: "bar-summary", id: "summary", role: "status" });
   const btn = h("button", { type: "button", class: "btn btn-primary btn-lg", onclick: () => submit(btn, summary) },
@@ -143,7 +197,84 @@ function updateSummary() {
   const parts = [tn("summary.questions", state.questions.length)];
   const schedules = state.questions.filter((q) => q.type === "schedule");
   if (schedules.length) parts.push(tn("summary.slots", schedules.reduce((n, q) => n + slotsOf(q).length, 0)));
+  if (state.template && state.template !== "blank") parts.push(t(`tpl.${state.template}`));
   el.textContent = parts.join(" · ");
+}
+
+function templatesSection() {
+  const own = ownSurveys();
+  const last = own[0];
+  return h("section", { class: "templates" },
+    h("div", { class: "section-head" }, h("h2", {}, t("tpl.title")), h("span", { class: "muted small" }, t("tpl.optional"))),
+    h("div", { class: "tpl-grid" }, TEMPLATES.map((tpl) => {
+      const sel = state.template === tpl.key;
+      return h("button", {
+        type: "button", class: `tpl-card${sel ? " sel" : ""}${tpl.key === "blank" ? " tpl-blank" : ""}`, "aria-pressed": String(sel),
+        onclick: () => applyTemplate(tpl),
+      },
+      h("span", { class: "tpl-icon" }, icon(tpl.icon)),
+      sel && h("span", { class: "tpl-check" }, icon("check")),
+      h("strong", {}, t(`tpl.${tpl.key}`)),
+      h("small", {}, t(`tpl.${tpl.key}_desc`)),
+      tpl.tags.length > 0 && h("span", { class: "tpl-tags" }, tpl.tags.map((tag) => h("span", { class: `tag tag-${tag}` }, t(`qtype.${tag}`)))));
+    })),
+    last && h("div", { class: "recent-row" },
+      h("span", { class: "tpl-icon tpl-icon-sm" }, icon("history")),
+      h("span", { class: "recent-text" }, h("strong", {}, last.title),
+        h("span", { class: "muted" }, ` · ${t("tpl.last_created", { date: fmtDate(new Date(last.created), { day: "numeric", month: "numeric" }) })}`)),
+      h("button", { type: "button", class: "btn-link", onclick: () => duplicate(last) }, t("tpl.duplicate"))));
+}
+
+// Settings as compact chips: "Results: Everyone ›", "Editable: Yes ›", "Account: No ›", "Closes: Never ›"
+function settingsChips() {
+  const s = state.settings;
+  const chip = (label, value) => [h("span", { class: "muted" }, `${label}:`), " ", h("strong", {}, value), icon("right")];
+  const toggle = (label, prop) => h("button", {
+    type: "button", class: "set-chip", "aria-pressed": String(s[prop]),
+    onclick: () => {
+      s[prop] = !s[prop];
+      render();
+    },
+  }, chip(label, t(s[prop] ? "set.yes" : "set.no")));
+
+  const results = h("details", { class: "menu set-menu" },
+    h("summary", { class: "set-chip" }, chip(t("set.results"), t(`set.results_${s.results}`))),
+    h("div", { class: "menu-pop menu-left" },
+      h("p", { class: "menu-title" }, t("settings.results")),
+      ["always", "after_vote", "hidden"].map((v) => h("button", {
+        type: "button", class: "menu-item", onclick: () => {
+          s.results = v;
+          render();
+        },
+      }, v === s.results ? icon("check") : h("span", { class: "ic" }), t(`settings.results_${v}`)))));
+
+  const closeLabel = state.closes_at ? fmtDate(new Date(state.closes_at), { dateStyle: "short", timeStyle: "short" }) : t("settings.never");
+  const closes = h("details", { class: "menu set-menu" },
+    h("summary", { class: "set-chip" }, chip(t("set.closes"), closeLabel)),
+    h("div", { class: "menu-pop menu-left menu-form" },
+      h("p", { class: "menu-title" }, t("settings.closes_at")),
+      h("input", {
+        type: "datetime-local", value: state.closes_at, "aria-label": t("settings.closes_at"),
+        onchange: (e) => {
+          state.closes_at = e.target.value;
+          render();
+        },
+      }),
+      state.closes_at && h("button", {
+        type: "button", class: "btn btn-sm", onclick: () => {
+          state.closes_at = "";
+          render();
+        },
+      }, t("settings.never"))));
+
+  return h("section", { class: "settings-chips" },
+    h("p", { class: "eyebrow" }, icon("gear"), " ", t("create.settings")),
+    h("div", { class: "chip-row" },
+      results,
+      toggle(t("set.editable"), "allow_edit"),
+      toggle(t("set.account"), "require_login"),
+      closes),
+    h("small", { class: "hint" }, t(`set.hint_${s.require_login ? "account" : "open"}`)));
 }
 
 function addQuestion(type) {
@@ -158,7 +289,7 @@ function addQuestion(type) {
 function renderQuestions() {
   const wrap = document.getElementById("questions");
   wrap.replaceChildren(...state.questions.map(questionCard));
-  if (!state.questions.length) wrap.append(h("p", { class: "muted center" }, t("create.no_questions")));
+  if (!state.questions.length && (state.template || editId)) wrap.append(h("p", { class: "muted center" }, t("create.no_questions")));
   updateSummary();
 }
 
@@ -285,7 +416,7 @@ function calendar(q, rerender) {
       "aria-label": fmtDate(new Date(y, mo, d), { dateStyle: "full" }),
       onclick: () => {
         if (sel) delete q.dates[key];
-        else q.dates[key] = [];
+        else q.dates[key] = q.defaultTimes ? [...q.defaultTimes] : [];
         rerender();
       },
     }, String(d)));
@@ -362,66 +493,6 @@ function dateCard(q, d, rerender) {
       adder));
 }
 
-function settingsCard() {
-  // Invisible native select covers the row; the visible text shows the current choice
-  const current = h("span", {}, t(`settings.results_${state.settings.results}`));
-  const results = h("select", {
-    class: "row-select", "aria-label": t("settings.results"),
-    onchange: (e) => {
-      state.settings.results = e.target.value;
-      current.textContent = t(`settings.results_${e.target.value}`);
-    },
-  }, ["always", "after_vote", "hidden"].map((v) =>
-    h("option", { value: v, selected: state.settings.results === v }, t(`settings.results_${v}`))));
-
-  return h("section", { class: "card settings" },
-    h("h2", { class: "settings-title" }, t("create.settings")),
-    h("label", { class: "set-row has-select" },
-      h("span", {}, t("settings.results")),
-      h("span", { class: "set-value" }, current, icon("right")),
-      results),
-    h("label", { class: "set-row" },
-      h("span", {}, t("settings.allow_edit")),
-      h("input", {
-        type: "checkbox", role: "switch", class: "switch", checked: state.settings.allow_edit,
-        onchange: (e) => (state.settings.allow_edit = e.target.checked),
-      })),
-    h("label", { class: "set-row" },
-      h("span", {}, t("settings.require_login"), h("small", { class: "hint" }, t("settings.require_login_hint"))),
-      h("input", {
-        type: "checkbox", role: "switch", class: "switch", checked: state.settings.require_login,
-        onchange: (e) => (state.settings.require_login = e.target.checked),
-      })),
-    closeRow());
-}
-
-function closeRow() {
-  const row = h("div", { class: "set-row" });
-  const paint = (open) => {
-    const right = h("span", { class: "set-value" });
-    if (state.closes_at || open) {
-      const input = h("input", {
-        type: "datetime-local", class: "row-date", value: state.closes_at, "aria-label": t("settings.closes_at"),
-        oninput: (e) => (state.closes_at = e.target.value),
-      });
-      right.append(input, iconBtn(icon("x"), t("settings.never"), false, () => {
-        state.closes_at = "";
-        paint(false);
-      }));
-      if (open) {
-        requestAnimationFrame(() => {
-          input.focus();
-          try { input.showPicker(); } catch { /* not supported */ }
-        });
-      }
-    } else {
-      right.append(h("button", { type: "button", class: "link-value", onclick: () => paint(true) }, t("settings.never"), icon("right")));
-    }
-    row.replaceChildren(h("span", {}, t("settings.closes_at")), right);
-  };
-  paint(false);
-  return row;
-}
 
 function renderSuccess() {
   const pub = publicUrl(created.id);

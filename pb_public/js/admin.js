@@ -1,15 +1,21 @@
-import { h, params, hashParams, publicUrl, adminUrl, editUrl, saveMySurvey, removeMySurvey, linkBox, toast, download, slug, errorCard } from "./util.js";
-import { t, initI18n, onLangChange, currentLang, fmtDate, fmtSlot } from "./i18n.js";
+// Admin page of a survey (a.html): status, favourite + "set final date", share link with QR code,
+// participants / invitations and the full answer matrix.
+import { h, params, hashParams, publicUrl, adminUrl, editUrl, saveMySurvey, removeMySurvey, toast, errorCard, icon, menu, copyText, setChildren } from "./util.js";
+import { t, initI18n, onLangChange } from "./i18n.js";
 import { api, errMsg, subscribe } from "./api.js";
-import { renderResults, finalBanner } from "./results.js";
+import {
+  statusPills, favoriteCard, scheduleMatrix, choiceMatrix, textOverview, commentsList, legend, exportCsv,
+} from "./results.js";
 import { initHeader, renderMineMenu } from "./header.js";
-import { loadInvites, invitesCard } from "./invites.js";
+import { loadInvites, participantsCard, openInviteForm, pendingInvites } from "./invites.js";
 
 const app = document.getElementById("app");
 const id = params.get("id");
 let key = hashParams.get("k") || "";
 
 let data = null;
+let showQr = false;
+let answersOpen = true;
 
 async function load() {
   data = await api.getSurvey(id, key ? { "X-Admin-Key": key } : {});
@@ -23,34 +29,104 @@ async function load() {
   }
 }
 
+const withFinal = (q) => ({ ...q, final: data.survey.final[q.id] });
+
 function render() {
   const s = data.survey;
+  const responses = data.responses;
+  const pending = pendingInvites();
+  const expected = responses.length + pending.length;
   document.title = `${s.title} · eventi`;
-  const resultsBox = h("div");
-  app.replaceChildren(
-    h("section", { class: "card" },
-      h("p", { class: "eyebrow" }, t("admin.eyebrow")),
-      h("h1", {}, s.title),
-      s.description && h("p", { class: "desc" }, s.description),
-      h("div", { class: "meta" },
-        h("span", { class: "pill" }, t("vote.participants", { n: data.count })),
-        s.is_closed
-          ? h("span", { class: "pill pill-closed" }, t("status.closed"))
-          : h("span", { class: "pill pill-open" }, t("status.open")),
-        !s.is_closed && s.closes_at && h("span", { class: "pill" }, t("status.closes", { date: fmtDate(new Date(s.closes_at), { dateStyle: "medium", timeStyle: "short" }) }))),
-      linkBox(t("success.public_link"), publicUrl(id), t("success.public_hint")),
-      linkBox(t("success.admin_link"), adminUrl(id, key), t("success.admin_hint"), true),
-      h("div", { class: "btn-row" },
-        h("a", { class: "btn", href: publicUrl(id) }, t("admin.view")),
-        h("a", { class: "btn", href: editUrl(id, key) }, t("admin.edit")),
-        h("button", { type: "button", class: "btn", onclick: toggleClosed }, t(s.is_closed ? "admin.reopen" : "admin.close")),
-        h("button", { type: "button", class: "btn", onclick: exportCsv, disabled: !data.count }, t("admin.csv")),
-        h("button", { type: "button", class: "btn btn-ghost danger", onclick: deleteSurvey }, t("admin.delete")))),
-    invitesCard({ id, key, survey: s }),
-    finalBanner(s),
-    h("h2", { class: "section-title" }, t("results.title")),
-    resultsBox);
-  renderResults(resultsBox, s, data.responses, { admin: true, onFinal, onDeleteResponse });
+  const schedules = s.questions.filter((q) => q.type === "schedule");
+
+  setChildren(app,
+    headSection(s, pending.length ? t("admin.voted_of", { n: responses.length, total: expected }) : t("vote.participants", { n: responses.length })),
+    responses.length > 0 && schedules.map((q) => favoriteCard(s, q, responses, {
+      admin: true, total: expected, several: schedules.length > 1, onFinal, ringLabel: t("ov.responses"),
+    })),
+    linkCard(),
+    participantsCard({ id, key, survey: s, responses, onChange: rerenderAnswers }),
+    h("div", { id: "answers-slot" }, answersCard()));
+}
+
+// Only the answer matrix depends on the invitation list (pending rows)
+function rerenderAnswers() {
+  const slot = document.getElementById("answers-slot");
+  if (slot) setChildren(slot, answersCard());
+}
+
+function headSection(s, progress) {
+  return h("section", { class: "page-head" },
+    h("div", { class: "head-row" },
+      statusPills(s, progress),
+      h("div", { class: "head-actions" },
+        h("a", { class: "icon-pill", href: publicUrl(id), title: t("admin.view"), "aria-label": t("admin.view") }, icon("eye")),
+        h("a", { class: "btn", href: editUrl(id, key) }, icon("edit"), t("admin.edit")),
+        menu(icon("more"), t("action.more"), [
+          { icon: s.is_closed ? "check" : "lock", label: t(s.is_closed ? "admin.reopen" : "admin.close"), onClick: toggleClosed },
+          { icon: "download", label: t("admin.csv"), disabled: !data.count, onClick: () => exportCsv(s, data.responses) },
+          { icon: "trash", label: t("admin.delete"), danger: true, onClick: deleteSurvey },
+        ], "menu-boxed"))),
+    h("h1", { class: "page-title" }, s.title),
+    s.description && h("p", { class: "desc lead" }, s.description));
+}
+
+function linkCard() {
+  const pub = publicUrl(id);
+  const qrBox = h("div", { class: "qr" });
+  if (showQr && window.qrcode) {
+    const qr = window.qrcode(0, "M");
+    qr.addData(pub);
+    qr.make();
+    qrBox.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true, alt: t("admin.qr") });
+  }
+  return h("section", { class: "card link-card" },
+    h("div", { class: "link-row" },
+      h("input", { type: "text", readonly: true, value: pub, "aria-label": t("success.public_link"), onfocus: (e) => e.target.select() }),
+      h("button", { type: "button", class: "btn btn-primary", onclick: () => copyText(pub).then(() => toast(t("action.copied"))) }, icon("copy"), t("admin.copy_link")),
+      h("button", {
+        type: "button", class: `icon-pill${showQr ? " active" : ""}`, title: t("admin.qr"), "aria-label": t("admin.qr"), "aria-pressed": String(showQr),
+        onclick: () => {
+          showQr = !showQr;
+          render();
+        },
+      }, icon("qr")),
+      h("button", { type: "button", class: "btn", onclick: openInviteForm }, icon("mail"), t("invites.add"))),
+    showQr && qrBox,
+    h("div", { class: "link-foot" },
+      h("span", { class: "muted small" }, icon("lock"), " ", t("admin.secret_hint")),
+      h("button", { type: "button", class: "btn-link small", onclick: () => copyText(adminUrl(id, key)).then(() => toast(t("action.copied"))) }, t("action.copy"))));
+}
+
+function answersCard() {
+  const s = data.survey;
+  const responses = data.responses;
+  const pendingNames = pendingInvites().map((i) => i.name || i.email);
+  const several = s.questions.length > 1;
+  const body = h("div", { class: "collapse-body" },
+    !responses.length && !pendingNames.length && h("p", { class: "muted" }, t("results.empty")),
+    (responses.length > 0 || pendingNames.length > 0) && s.questions.map((q) => {
+      if (q.type === "text") return null;
+      return h("div", { class: "all-block" },
+        several && h("h3", { class: "q-title" }, q.label),
+        q.type === "schedule"
+          ? scheduleMatrix(withFinal(q), responses, { pending: pendingNames, onDelete: onDeleteResponse })
+          : choiceMatrix(q, responses, { onDelete: onDeleteResponse }));
+    }),
+    responses.length > 0 && s.questions.some((q) => q.type === "schedule") && legend(s.questions.find((q) => q.type === "schedule")),
+    responses.length > 0 && s.questions.filter((q) => q.type === "text").map((q) => textOverview(q, responses, q.label)),
+    commentsList(responses));
+  return h("section", { class: "card" },
+    h("div", { class: "card-head" },
+      h("h2", {}, t("all.title_plain")),
+      h("button", {
+        type: "button", class: "btn-link small muted-link", "aria-expanded": String(answersOpen),
+        onclick: () => {
+          answersOpen = !answersOpen;
+          rerenderAnswers();
+        },
+      }, t(answersOpen ? "all.collapse" : "all.expand"), icon(answersOpen ? "up" : "down"))),
+    answersOpen && body);
 }
 
 async function patch(body) {
@@ -98,34 +174,6 @@ async function deleteSurvey() {
   } catch (e) {
     toast(errMsg(e), "err");
   }
-}
-
-function exportCsv() {
-  const s = data.survey;
-  const sep = currentLang() === "en" ? "," : ";";
-  const head = [t("vote.name"), t("csv.date")];
-  for (const q of s.questions) {
-    if (q.type === "schedule") for (const sl of q.slots) head.push(`${q.label} – ${fmtSlot(sl)}`);
-    else head.push(q.label);
-  }
-  const rows = data.responses.map((r) => {
-    const row = [r.name, r.created];
-    for (const q of s.questions) {
-      const a = r.answers[q.id];
-      if (q.type === "schedule") for (const sl of q.slots) row.push(t(`answer.${a?.[sl] || "no"}`));
-      else if (q.type === "choice") row.push((a || []).join(", "));
-      else row.push(a || "");
-    }
-    return row;
-  });
-  // Quote when needed and neutralize spreadsheet formulas
-  const esc = (v) => {
-    v = String(v ?? "");
-    if (/^[=+\-@]/.test(v)) v = `'${v}`;
-    return /["\n\r,;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-  };
-  const csv = `﻿${[head, ...rows].map((r) => r.map(esc).join(sep)).join("\r\n")}`;
-  download(`${slug(s.title)}.csv`, csv, "text/csv;charset=utf-8");
 }
 
 async function main() {

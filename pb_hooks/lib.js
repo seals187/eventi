@@ -5,7 +5,7 @@
 // Error messages are i18n keys that the frontend translates.
 
 const LIMITS = {
-  title: 200, description: 2000, question_label: 300, option: 200, name: 60, text: 2000,
+  title: 200, description: 2000, question_label: 300, option: 200, name: 60, text: 2000, comment: 1000,
   questions: 20, options: 50, slots: 200,
 };
 const ID_RE = /^[a-z0-9]{1,16}$/;
@@ -236,6 +236,7 @@ function responseDTO(rec) {
     id: rec.id,
     name: rec.getString("name"),
     account: rec.getString("user") !== "",
+    comment: rec.getString("comment"),
     answers: readJSON(rec, "answers", {}),
     created: isoDate(rec.getString("created")),
   };

@@ -10,6 +10,7 @@ routerAdd("GET", "/api/eventi/config", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const signup = lib.signupConfig();
   return e.json(200, {
+    version: $os.getenv("EVENTI_VERSION") || "dev",
     default_lang: $os.getenv("EVENTI_DEFAULT_LANG") || "de",
     max_responses: lib.maxResponses(),
     mail: lib.mailEnabled(),
@@ -114,6 +115,7 @@ routerAdd("POST", "/api/eventi/surveys/{id}/responses", (e) => {
   else name = invitation.getString("name") || invitation.getString("email").split("@")[0];
   rec.set("name", name.slice(0, 60));
   rec.set("answers", lib.cleanAnswers(lib.readJSON(survey, "questions", []), body.answers));
+  rec.set("comment", lib.cleanStr(body.comment, "comment", false));
   if (user) rec.set("user", user.id);
   const key = lib.newKey();
   rec.set("edit_key", key);
@@ -136,6 +138,7 @@ routerAdd("PATCH", "/api/eventi/responses/{id}", (e) => {
   const body = lib.readBody(e);
   if ("name" in body && !settings.require_login) rec.set("name", lib.cleanStr(body.name, "name", true));
   if ("answers" in body) rec.set("answers", lib.cleanAnswers(lib.readJSON(survey, "questions", []), body.answers));
+  if ("comment" in body) rec.set("comment", lib.cleanStr(body.comment, "comment", false));
   $app.save(rec);
   lib.notify(survey.id);
   return e.json(200, lib.responseDTO(rec));

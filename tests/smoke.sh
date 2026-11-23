@@ -79,6 +79,8 @@ RID=$(json id)
 EKEY=$(json edit_key)
 req PATCH "/api/eventi/responses/$RID" '{"name":"Anna B"}' "X-Edit-Key: $EKEY"
 check "edit with edit key" 200 "$CODE"
+req PATCH "/api/eventi/responses/$RID" '{"comment":"Am 26. bin ich weg."}' "X-Edit-Key: $EKEY"
+check "comment saved" "Am 26. bin ich weg." "$(json comment)"
 req PATCH "/api/eventi/responses/$RID" '{"name":"X"}' "$AUTH"
 check "other account cannot edit" 403 "$CODE"
 req PATCH "/api/eventi/surveys/$SID" '{"settings":{"require_login":true}}' "$AUTH"
