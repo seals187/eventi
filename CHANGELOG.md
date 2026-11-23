@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   more compact cards, ring and matrix rows; the reminder note became the button tooltip
 - Voting page more compact: smaller tabs and rows; in “my answer” the date and the yes / maybe / no
   buttons share one line on wider screens
+- Smaller base size: the default (eventi “100 %”) is 87.5 % of the previous size; − / + scale relative to it
 
 ## [0.0.2] – 2026-11-23
 

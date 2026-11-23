@@ -63,7 +63,8 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+/* Base UI scale: eventi's "100 %" is 87.5 % of the design size (keep in sync with BASE_SCALE in js/header.js) */
+html { -webkit-text-size-adjust: 100%; zoom: .875; }
 
 body {
   margin: 0;

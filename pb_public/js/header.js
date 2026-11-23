@@ -7,11 +7,13 @@ let serverSurveys = [];
 // --- UI zoom (per browser): 70 % .. 110 % in 5 % steps, applied with CSS zoom on <html> ----
 const ZOOM_KEY = "eventi:zoom";
 const ZOOM_MIN = 70, ZOOM_MAX = 110, ZOOM_STEP = 5;
+const BASE_SCALE = 0.875;
 let zoom = Number(store.get(ZOOM_KEY)) || 100;
 
 function applyZoom() {
   zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(zoom / ZOOM_STEP) * ZOOM_STEP));
-  document.documentElement.style.zoom = zoom === 100 ? "" : String(zoom / 100);
+  // The level is relative to the base scale set in app.css (html { zoom: .875 })
+  document.documentElement.style.zoom = zoom === 100 ? "" : String((BASE_SCALE * zoom) / 100);
 }
 // Apply as early as possible (module load), before the page renders its content
 applyZoom();
