@@ -55,7 +55,11 @@ function initDraft() {
     : { name: data.invitation?.name || store.get(NAME_KEY) || currentUser()?.display_name || "", answers: {} };
   if (data.survey.settings.require_login) draft.name = fixedName();
   for (const q of data.survey.questions) {
-    if (q.type === "schedule" && !draft.answers[q.id]) draft.answers[q.id] = {};
+    if (q.type !== "schedule") continue;
+    if (!draft.answers[q.id]) draft.answers[q.id] = {};
+    // The server only stores yes/maybe. In an existing answer, every other slot was a "no";
+    // in a new answer, slots stay unselected until clicked (and still count as "no").
+    if (data.mine) for (const slot of q.slots) draft.answers[q.id][slot] ||= "no";
   }
 }
 
@@ -176,16 +180,17 @@ function questionInput(q) {
     card.append(h("div", { class: "slots" }, q.slots.map((slot) => {
       const row = h("div", { class: "slot-row" });
       const paint = () => {
-        const cur = ans[slot] || "no";
-        row.dataset.state = cur;
+        const cur = ans[slot] || "";
+        if (cur) row.dataset.state = cur;
+        else delete row.dataset.state;
         row.querySelectorAll(".seg-btn").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === cur)));
       };
       row.append(slotLabel(slot), h("div", { class: "seg", role: "group" }, states.map((v) =>
         h("button", {
           type: "button", class: `seg-btn seg-${v}`, "data-v": v, title: t(`answer.${v}`), "aria-label": t(`answer.${v}`),
           onclick: () => {
-            if (v === "no") delete ans[slot];
-            else ans[slot] = v;
+            // Explicit "no" is kept for display only; the server stores yes/maybe and treats the rest as no
+            ans[slot] = v;
             dirty = true;
             paint();
           },
@@ -207,7 +212,7 @@ function questionInput(q) {
 
 function isEmpty(q, a) {
   if (q.type === "choice") return !a || !a.length;
-  if (q.type === "schedule") return !a || !Object.keys(a).length;
+  if (q.type === "schedule") return !a || !Object.values(a).some((v) => v === "yes" || v === "maybe");
   return !a || !String(a).trim();
 }
 
