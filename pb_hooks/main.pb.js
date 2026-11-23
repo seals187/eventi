@@ -1,24 +1,31 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-// Public API under /api/eventi. Auth works via secret keys sent as headers:
-//   X-Admin-Key  -> survey owner (returned once on creation)
-//   X-Edit-Key   -> participant editing their own response
+// Public API under /api/eventi. Access:
+//   Authorization  -> logged-in account (PocketBase auth token, users collection)
+//   X-Admin-Key    -> survey management via secret admin link (returned on creation)
+//   X-Edit-Key     -> participant editing their own response without an account
+// Creating surveys requires an account; the owner can always manage their surveys.
 
 routerAdd("GET", "/api/eventi/config", (e) => {
   const lib = require(`${__hooks}/lib.js`);
+  const signup = lib.signupConfig();
   return e.json(200, {
     default_lang: $os.getenv("EVENTI_DEFAULT_LANG") || "de",
     max_responses: lib.maxResponses(),
+    mail: lib.mailEnabled(),
+    signup: { self: signup.self, approval: signup.approval && !signup.open, domains: signup.domains },
   });
 });
 
 routerAdd("POST", "/api/eventi/surveys", (e) => {
   const lib = require(`${__hooks}/lib.js`);
+  const user = lib.requireUser(e);
   const body = lib.readBody(e);
   const rec = new Record($app.findCollectionByNameOrId("surveys"));
   lib.applySurvey(rec, body, true);
   const key = lib.newKey();
   rec.set("admin_key", key);
+  rec.set("owner", user.id);
   $app.save(rec);
   return e.json(200, { id: rec.id, admin_key: key });
 });
@@ -26,7 +33,8 @@ routerAdd("POST", "/api/eventi/surveys", (e) => {
 routerAdd("GET", "/api/eventi/surveys/{id}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const rec = lib.findSurvey(e.request.pathValue("id"));
-  const admin = lib.checkKey(e.request.header.get("X-Admin-Key"), rec.getString("admin_key"));
+  const admin = lib.canAdmin(e, rec);
+  const user = lib.currentUser(e);
   const records = $app.findRecordsByFilter("responses", "survey = {:id}", "created", 0, 0, { id: rec.id });
 
   const rid = e.request.header.get("X-Response-Id");
@@ -35,7 +43,9 @@ routerAdd("GET", "/api/eventi/surveys/{id}", (e) => {
   let mine = null;
   for (let i = 0; i < records.length; i++) {
     const dto = lib.responseDTO(records[i]);
-    if (rid && dto.id === rid && lib.checkKey(rkey, records[i].getString("edit_key"))) mine = dto;
+    const byKey = rid && dto.id === rid && lib.checkKey(rkey, records[i].getString("edit_key"));
+    const byAccount = user && records[i].getString("user") === user.id;
+    if (byKey || byAccount) mine = dto;
     responses.push(dto);
   }
 
@@ -46,6 +56,7 @@ routerAdd("GET", "/api/eventi/surveys/{id}", (e) => {
   return e.json(200, {
     survey: survey,
     admin: admin,
+    admin_key: admin ? rec.getString("admin_key") : undefined,
     can_see_results: canSee,
     count: responses.length,
     responses: canSee ? responses : null,
@@ -56,17 +67,19 @@ routerAdd("GET", "/api/eventi/surveys/{id}", (e) => {
 routerAdd("PATCH", "/api/eventi/surveys/{id}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const rec = lib.findSurvey(e.request.pathValue("id"));
-  if (!lib.checkKey(e.request.header.get("X-Admin-Key"), rec.getString("admin_key"))) throw new ForbiddenError("err.forbidden");
+  if (!lib.canAdmin(e, rec)) throw new ForbiddenError("err.forbidden");
+  const finalBefore = lib.readJSON(rec, "final", {});
   lib.applySurvey(rec, lib.readBody(e), false);
   $app.save(rec);
   lib.notify(rec.id);
+  require(`${__hooks}/notify.js`).finalChanged(rec, finalBefore);
   return e.json(200, { survey: lib.surveyDTO(rec) });
 });
 
 routerAdd("DELETE", "/api/eventi/surveys/{id}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const rec = lib.findSurvey(e.request.pathValue("id"));
-  if (!lib.checkKey(e.request.header.get("X-Admin-Key"), rec.getString("admin_key"))) throw new ForbiddenError("err.forbidden");
+  if (!lib.canAdmin(e, rec)) throw new ForbiddenError("err.forbidden");
   $app.delete(rec);
   lib.notify(rec.id);
   return e.noContent(204);
@@ -76,31 +89,38 @@ routerAdd("POST", "/api/eventi/surveys/{id}/responses", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const survey = lib.findSurvey(e.request.pathValue("id"));
   if (lib.isClosed(survey)) lib.fail("err.closed");
+  const settings = lib.surveyDTO(survey).settings;
+  const user = settings.require_login ? lib.requireUser(e) : lib.currentUser(e);
   const count = $app.countRecords("responses", $dbx.hashExp({ survey: survey.id }));
   if (count >= lib.maxResponses()) lib.fail("err.max_responses");
+  if (user && $app.countRecords("responses", $dbx.hashExp({ survey: survey.id, user: user.id })) > 0) lib.fail("err.already_voted");
 
   const body = lib.readBody(e);
   const rec = new Record($app.findCollectionByNameOrId("responses"));
   rec.set("survey", survey.id);
-  rec.set("name", lib.cleanStr(body.name, "name", true));
+  // With mandatory login the account name is used, so nobody votes under someone else's name
+  rec.set("name", settings.require_login ? lib.displayName(user).slice(0, 60) : lib.cleanStr(body.name, "name", true));
   rec.set("answers", lib.cleanAnswers(lib.readJSON(survey, "questions", []), body.answers));
+  if (user) rec.set("user", user.id);
   const key = lib.newKey();
   rec.set("edit_key", key);
   $app.save(rec);
   lib.notify(survey.id);
+  require(`${__hooks}/notify.js`).responseAdded(survey, rec);
   return e.json(200, { id: rec.id, edit_key: key });
 });
 
 routerAdd("PATCH", "/api/eventi/responses/{id}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const rec = lib.findResponse(e.request.pathValue("id"));
-  if (!lib.checkKey(e.request.header.get("X-Edit-Key"), rec.getString("edit_key"))) throw new ForbiddenError("err.forbidden");
+  if (!lib.ownsResponse(e, rec)) throw new ForbiddenError("err.forbidden");
   const survey = lib.findSurvey(rec.getString("survey"));
   if (lib.isClosed(survey)) lib.fail("err.closed");
-  if (!lib.surveyDTO(survey).settings.allow_edit) lib.fail("err.edit_disabled");
+  const settings = lib.surveyDTO(survey).settings;
+  if (!settings.allow_edit) lib.fail("err.edit_disabled");
 
   const body = lib.readBody(e);
-  if ("name" in body) rec.set("name", lib.cleanStr(body.name, "name", true));
+  if ("name" in body && !settings.require_login) rec.set("name", lib.cleanStr(body.name, "name", true));
   if ("answers" in body) rec.set("answers", lib.cleanAnswers(lib.readJSON(survey, "questions", []), body.answers));
   $app.save(rec);
   lib.notify(survey.id);
@@ -111,9 +131,8 @@ routerAdd("DELETE", "/api/eventi/responses/{id}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const rec = lib.findResponse(e.request.pathValue("id"));
   const survey = lib.findSurvey(rec.getString("survey"));
-  const admin = lib.checkKey(e.request.header.get("X-Admin-Key"), survey.getString("admin_key"));
-  if (!admin) {
-    if (!lib.checkKey(e.request.header.get("X-Edit-Key"), rec.getString("edit_key"))) throw new ForbiddenError("err.forbidden");
+  if (!lib.canAdmin(e, survey)) {
+    if (!lib.ownsResponse(e, rec)) throw new ForbiddenError("err.forbidden");
     if (lib.isClosed(survey)) lib.fail("err.closed");
     if (!lib.surveyDTO(survey).settings.allow_edit) lib.fail("err.edit_disabled");
   }
@@ -124,7 +143,6 @@ routerAdd("DELETE", "/api/eventi/responses/{id}", (e) => {
 
 // Optional cleanup of inactive surveys (EVENTI_RETENTION_DAYS > 0).
 cronAdd("eventiCleanup", "30 3 * * *", () => {
-  const lib = require(`${__hooks}/lib.js`);
   const days = parseInt($os.getenv("EVENTI_RETENTION_DAYS") || "0", 10);
   if (!(days > 0)) return;
   const cutoff = new Date(Date.now() - days * 86400000);

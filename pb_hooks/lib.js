@@ -117,6 +117,7 @@ function cleanSettings(s) {
   return {
     results: RESULTS.indexOf(s.results) >= 0 ? s.results : "always",
     allow_edit: s.allow_edit !== false,
+    require_login: s.require_login === true,
   };
 }
 
@@ -234,6 +235,7 @@ function responseDTO(rec) {
   return {
     id: rec.id,
     name: rec.getString("name"),
+    account: rec.getString("user") !== "",
     answers: readJSON(rec, "answers", {}),
     created: isoDate(rec.getString("created")),
   };
@@ -254,7 +256,100 @@ function notify(surveyId) {
   }
 }
 
+// --- Accounts ---------------------------------------------------------------
+
+const list = (name) => ($os.getenv(name) || "").toLowerCase().split(/[\s,;]+/).filter(Boolean);
+
+function mailEnabled() {
+  return $app.settings().smtp.enabled;
+}
+
+// EVENTI_SIGNUP: any combination of invite, domain, approval, open (default: invite).
+// Admins can always invite. "domain" needs working mail, since the address must be verified.
+function signupConfig() {
+  const modes = list("EVENTI_SIGNUP");
+  const domains = list("EVENTI_SIGNUP_DOMAINS").map((d) => d.replace(/^@/, ""));
+  const domain = modes.indexOf("domain") >= 0 && domains.length > 0 && mailEnabled();
+  const open = modes.indexOf("open") >= 0;
+  const approval = modes.indexOf("approval") >= 0;
+  return { self: open || approval || domain, open: open, approval: approval, domains: domain ? domains : [] };
+}
+
+// Status for a self sign-up, or "" if not allowed
+function signupStatus(email) {
+  const c = signupConfig();
+  const at = String(email || "").toLowerCase().lastIndexOf("@");
+  const dom = at >= 0 ? String(email).toLowerCase().slice(at + 1) : "";
+  if (c.open || (dom && c.domains.indexOf(dom) >= 0)) return "active";
+  if (c.approval) return "pending";
+  return "";
+}
+
+// Logged-in, active account or null. The status is checked on every request,
+// so blocking a user takes effect immediately, not only when the token expires.
+function currentUser(e) {
+  const a = e.auth;
+  if (!a || a.collection().name !== "users" || a.getString("status") !== "active") return null;
+  return a;
+}
+
+function requireUser(e) {
+  const u = currentUser(e);
+  if (!u) throw new UnauthorizedError("err.login_required");
+  return u;
+}
+
+function requireAdmin(e) {
+  const u = requireUser(e);
+  if (u.getString("role") !== "admin") throw new ForbiddenError("err.forbidden");
+  return u;
+}
+
+function isOwner(e, survey) {
+  const u = currentUser(e);
+  return !!u && survey.getString("owner") === u.id;
+}
+
+// Survey management: secret admin link or owning account
+function canAdmin(e, survey) {
+  return checkKey(e.request.header.get("X-Admin-Key"), survey.getString("admin_key")) || isOwner(e, survey);
+}
+
+// Own response: edit key (no account) or the account that gave it
+function ownsResponse(e, rec) {
+  if (checkKey(e.request.header.get("X-Edit-Key"), rec.getString("edit_key"))) return true;
+  const u = currentUser(e);
+  return !!u && rec.getString("user") === u.id;
+}
+
+function displayName(u) {
+  const n = u.getString("name").trim();
+  return n || u.email().split("@")[0];
+}
+
+function userDTO(u) {
+  return {
+    id: u.id,
+    email: u.email(),
+    name: u.getString("name"),
+    display_name: displayName(u),
+    role: u.getString("role") || "user",
+    status: u.getString("status") || "pending",
+    verified: u.verified(),
+    lang: u.getString("lang"),
+    mail_opt_out: u.getBool("mail_opt_out"),
+    created: isoDate(u.getString("created")),
+  };
+}
+
+const LANGS = ["de", "en", "fr"];
+function cleanLang(l) {
+  return LANGS.indexOf(l) >= 0 ? l : "";
+}
+
 module.exports = {
   fail, readBody, readJSON, newKey, checkKey, cleanStr, cleanAnswers, applySurvey,
   isClosed, findSurvey, findResponse, surveyDTO, responseDTO, maxResponses, notify, isoDate,
+  mailEnabled, signupConfig, signupStatus, currentUser, requireUser, requireAdmin, isOwner, canAdmin, ownsResponse,
+  displayName, userDTO, cleanLang,
 };
