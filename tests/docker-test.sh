@@ -3,7 +3,8 @@
 #   - builds the image as eventi:test
 #   - starts Mailpit (test mail server) and eventi on their own network
 #   - runs tests/smoke.sh and tests/mail.sh
-#   - removes the containers again (keep them with KEEP=1)
+#   - leaves both containers running for manual testing (remove them with CLEAN=1,
+#     or later: docker rm -f eventi-test eventi-mailpit)
 # Does not touch your .env, your running eventi container or its data volume.
 #
 #   bash tests/docker-test.sh
@@ -17,7 +18,14 @@ ADMIN_EMAIL=admin@test.local
 ADMIN_PASSWORD=adminpass123
 
 cleanup() {
-  [ "${KEEP:-}" = 1 ] && { echo "Containers kept: http://127.0.0.1:$PORT, Mailpit http://127.0.0.1:$MAILPIT_PORT"; return; }
+  if [ "${CLEAN:-}" != 1 ]; then
+    echo
+    echo "Test-Container laeuft weiter:"
+    echo "  eventi   http://127.0.0.1:$PORT   (Admin: $ADMIN_EMAIL / $ADMIN_PASSWORD)"
+    echo "  Mailpit  http://127.0.0.1:$MAILPIT_PORT   (alle Mails inkl. Login-Codes)"
+    echo "  Stoppen: docker rm -f eventi-test eventi-mailpit"
+    return
+  fi
   docker rm -f eventi-test eventi-mailpit >/dev/null 2>&1
   docker network rm "$NET" >/dev/null 2>&1
 }

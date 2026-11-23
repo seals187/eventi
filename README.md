@@ -85,6 +85,10 @@ Baut ein Test-Image, startet es isoliert mit [Mailpit](https://mailpit.axllent.o
 keine Mail den Rechner) und führt `tests/smoke.sh` (API, Rechte) und `tests/mail.sh` (Registrierung, Code-Login,
 Einladung, Benachrichtigungen) aus. Die eigene `.env` und der laufende Container bleiben unberührt.
 
+Danach laufen die Test-Container weiter zum Ausprobieren: eventi auf http://127.0.0.1:8098
+(Admin `admin@test.local` / `adminpass123`), Mailpit mit allen Mails und Login-Codes auf http://127.0.0.1:8025.
+Entfernen mit `docker rm -f eventi-test eventi-mailpit` oder gleich `CLEAN=1 bash tests/docker-test.sh`.
+
 ## HTTPS (intern, eigenes Zertifikat)
 
 Optionaler Caddy-Container vor eventi, nur aus internen Netzen erreichbar.
