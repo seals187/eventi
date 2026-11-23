@@ -3,6 +3,7 @@ import { t, initI18n, onLangChange, currentLang, fmtDate, fmtSlot } from "./i18n
 import { api, errMsg, subscribe } from "./api.js";
 import { renderResults, finalBanner } from "./results.js";
 import { initHeader, renderMineMenu } from "./header.js";
+import { loadInvites, invitesCard } from "./invites.js";
 
 const app = document.getElementById("app");
 const id = params.get("id");
@@ -14,6 +15,7 @@ async function load() {
   data = await api.getSurvey(id, key ? { "X-Admin-Key": key } : {});
   if (!data.admin) throw Object.assign(new Error("err.forbidden"), { status: 403 });
   key = data.admin_key || key;
+  await loadInvites(id, key);
   // Own surveys are listed via the account; remember links shared by others in this browser
   if (!data.owner) {
     saveMySurvey({ id, key, title: data.survey.title });
@@ -44,6 +46,7 @@ function render() {
         h("button", { type: "button", class: "btn", onclick: toggleClosed }, t(s.is_closed ? "admin.reopen" : "admin.close")),
         h("button", { type: "button", class: "btn", onclick: exportCsv, disabled: !data.count }, t("admin.csv")),
         h("button", { type: "button", class: "btn btn-ghost danger", onclick: deleteSurvey }, t("admin.delete")))),
+    invitesCard({ id, key, survey: s }),
     finalBanner(s),
     h("h2", { class: "section-title" }, t("results.title")),
     resultsBox);

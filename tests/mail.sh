@@ -88,6 +88,46 @@ wait_mail "$MAX" "Date confirmed" 130; check "final date mail to participant (En
 check "final date formatted" 1 "$(latest_text "$MAX" | grep -c 'Thu 2030-01-10, 18:00')"
 curl -s -o /dev/null -X DELETE "$BASE/api/eventi/surveys/$SID" -H "$ADM"
 
+echo "== Survey invitations + reminders (waiting for cron, up to 2 min)"
+ANNA="anna-$RUN@example.org"
+CLOSES=$(date -u -d '+2 hours' +%Y-%m-%dT%H:%M:%S.000Z)
+SID=$(post /api/eventi/surveys '{"title":"Einladung '"$RUN"'","settings":{"require_login":true},"closes_at":"'"$CLOSES"'","questions":[{"type":"choice","label":"Was?","options":["A","B"]}]}' "$ADM" | field id)
+R=$(post "/api/eventi/surveys/$SID/invitations" "{\"emails\":\"Anna <$ANNA>, $MAX\"}" "$ADM")
+check "invite two people" 2 "$(echo "$R" | grep -o '"added":[0-9]*' | cut -d: -f2)"
+R=$(post "/api/eventi/surveys/$SID/invitations" "{\"emails\":\"$ANNA\"}" "$ADM")
+check "duplicate is skipped" 1 "$(echo "$R" | grep -o '"skipped":[0-9]*' | cut -d: -f2)"
+check "stranger cannot see invitations" 403 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/eventi/surveys/$SID/invitations" -H "Authorization: $MAXTOKEN")"
+wait_mail "$ANNA" "Einladung $RUN" 90; check "invitation mail to Anna (German)" 0 $?
+wait_mail "$MAX" "Invitation: Einladung $RUN" 30; check "invitation mail to Max (his language: English)" 0 $?
+TOK=$(latest_text "$ANNA" | grep -o '#i=[A-Za-z0-9]*' | head -1 | cut -c4-)
+check "personal link in mail" 1 "$([ ${#TOK} -ge 20 ] && echo 1)"
+check "link identifies Anna" Anna "$(curl -s "$BASE/api/eventi/surveys/$SID" -H "X-Invite-Token: $TOK" | grep -o '"invitation":{[^}]*' | field name)"
+check "anonymous vote without link rejected" 401 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/eventi/surveys/$SID/responses" -H "$H" -d '{"name":"X","answers":{}}')"
+R=$(curl -s -X POST "$BASE/api/eventi/surveys/$SID/responses" -H "$H" -H "X-Invite-Token: $TOK" -d '{"name":"Fake","answers":{"x":["A"]}}')
+check "vote via personal link (no account)" 1 "$(echo "$R" | grep -c '"edit_key"')"
+ARID=$(echo "$R" | field id)
+check "second vote via link rejected" 400 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/eventi/surveys/$SID/responses" -H "$H" -H "X-Invite-Token: $TOK" -d '{"answers":{}}')"
+check "edit via link" 200 "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$BASE/api/eventi/responses/$ARID" -H "$H" -H "X-Invite-Token: $TOK" -d '{"answers":{}}')"
+check "name taken from invitation" 0 "$(curl -s "$BASE/api/eventi/surveys/$SID" -H "$ADM" | grep -c '"Fake"')"
+INVS=$(curl -s "$BASE/api/eventi/surveys/$SID/invitations" -H "$ADM")
+check "Anna counted as voted" true "$(echo "$INVS" | tr '}' '\n' | grep "$ANNA" | grep -o '"voted":[a-z]*' | cut -d: -f2)"
+check "Max still pending" false "$(echo "$INVS" | tr '}' '\n' | grep "$MAX" | grep -o '"voted":[a-z]*' | cut -d: -f2)"
+SU="Authorization: $(post /api/collections/_superusers/auth-with-password "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" | field token)"
+for _ in $(seq 1 70); do curl -s "$BASE/api/collections/surveys/records/$SID?fields=reminder_for" -H "$SU" | grep -q '"reminder_for":"2' && break; sleep 2; done
+check "automatic reminder scheduled (closes within 24 h)" 1 "$(curl -s "$BASE/api/collections/surveys/records/$SID?fields=reminder_for" -H "$SU" | grep -c '"reminder_for":"2')"
+check "automatic reminder skips people invited just now" 0 "$(curl -s "$BASE/api/eventi/surveys/$SID/invitations" -H "$ADM" | grep -c '"remind_queued":true')"
+check "manual reminder queued for Max only" 1 "$(post "/api/eventi/surveys/$SID/invitations/remind" '{}' "$ADM" | grep -o '"queued":[0-9]*' | cut -d: -f2)"
+wait_mail "$MAX" "Reminder: Einladung $RUN" 90; check "reminder mail (English)" 0 $?
+check "reminder mentions closing time" 1 "$(latest_text "$MAX" | grep -c 'The poll closes on')"
+check "Anna got no reminder" 0 "$(subjects "$ANNA" | grep -c Erinnerung)"
+check "manual reminder: nobody due again within 12 h" 0 "$(post "/api/eventi/surveys/$SID/invitations/remind" '{}' "$ADM" | grep -o '"queued":[0-9]*' | cut -d: -f2)"
+post "/api/eventi/surveys/$SID/responses" '{"answers":{}}' "Authorization: $MAXTOKEN" >/dev/null
+check "Max counted as voted after voting with account" true "$(curl -s "$BASE/api/eventi/surveys/$SID/invitations" -H "$ADM" | tr '}' '\n' | grep "$MAX" | grep -o '"voted":[a-z]*' | cut -d: -f2)"
+AIID=$(curl -s "$BASE/api/eventi/surveys/$SID/invitations" -H "$ADM" | tr '}' '\n' | grep "$ANNA" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+curl -s -o /dev/null -X DELETE "$BASE/api/eventi/invitations/$AIID" -H "$ADM"
+check "removed invitation: link no longer works" 0 "$(curl -s "$BASE/api/eventi/surveys/$SID" -H "X-Invite-Token: $TOK" | grep -c '"invitation":{')"
+curl -s -o /dev/null -X DELETE "$BASE/api/eventi/surveys/$SID" -H "$ADM"
+
 echo "== Cleanup"
 for u in $(curl -s "$BASE/api/eventi/users" -H "$ADM" | tr '}' '\n' | grep -- "-$RUN@" | grep -o '"id":"[^"]*"' | cut -d'"' -f4); do
   curl -s -o /dev/null -X DELETE "$BASE/api/eventi/users/$u" -H "$ADM"

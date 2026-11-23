@@ -25,12 +25,17 @@ export function clearSession() {
 
 // --- Requests ----------------------------------------------------------------
 
+// Personal invitation token of the current survey page (sent as X-Invite-Token)
+let inviteToken = "";
+export const setInviteToken = (tok) => (inviteToken = tok || "");
+
 async function request(method, url, { body, headers } = {}) {
   const res = await fetch(url, {
     method,
     headers: {
       ...(body ? { "Content-Type": "application/json" } : {}),
       ...(session?.token ? { Authorization: session.token } : {}),
+      ...(inviteToken && url.startsWith("/api/eventi/") ? { "X-Invite-Token": inviteToken } : {}),
       ...headers,
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -66,6 +71,11 @@ export const api = {
   inviteUser: (body) => req("POST", "/users", { body }),
   updateUser: (id, body) => req("PATCH", `/users/${id}`, { body }),
   deleteUser: (id) => req("DELETE", `/users/${id}`),
+
+  listInvitations: (id, key) => req("GET", `/surveys/${id}/invitations`, { headers: key ? { "X-Admin-Key": key } : {} }),
+  invite: (id, key, emails) => req("POST", `/surveys/${id}/invitations`, { body: { emails }, headers: key ? { "X-Admin-Key": key } : {} }),
+  remind: (id, key) => req("POST", `/surveys/${id}/invitations/remind`, { headers: key ? { "X-Admin-Key": key } : {} }),
+  deleteInvitation: (iid, key) => req("DELETE", `/invitations/${iid}`, { headers: key ? { "X-Admin-Key": key } : {} }),
 };
 
 // PocketBase's own auth endpoints

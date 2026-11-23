@@ -1,6 +1,6 @@
-import { h, store, params, field, toast, errorCard } from "./util.js";
+import { h, store, params, hashParams, field, toast, errorCard } from "./util.js";
 import { t, initI18n, onLangChange, fmtDate } from "./i18n.js";
-import { api, errMsg, subscribe, currentUser } from "./api.js";
+import { api, errMsg, subscribe, currentUser, setInviteToken } from "./api.js";
 import { renderResults, finalBanner, slotLabel, ICON } from "./results.js";
 import { initHeader, loginUrl } from "./header.js";
 
@@ -8,6 +8,15 @@ const app = document.getElementById("app");
 const id = params.get("id");
 const MINE_KEY = `eventi:r:${id}`;
 const NAME_KEY = "eventi:name";
+const INVITE_KEY = `eventi:i:${id}`;
+
+// Personal invitation link (#i=token): remember it for this survey and drop it from the address bar
+let inviteToken = hashParams.get("i") || store.get(INVITE_KEY) || "";
+if (hashParams.get("i")) {
+  store.set(INVITE_KEY, inviteToken);
+  history.replaceState(null, "", location.pathname + location.search);
+}
+setInviteToken(inviteToken);
 
 let data = null;
 let mine = store.get(MINE_KEY); // { id, key } of own response
@@ -19,6 +28,12 @@ const els = {};
 async function load() {
   const headers = mine ? { "X-Response-Id": mine.id, "X-Edit-Key": mine.key } : {};
   data = await api.getSurvey(id, headers);
+  if (inviteToken && !data.invitation) {
+    // Invitation was removed by the owner
+    store.del(INVITE_KEY);
+    inviteToken = "";
+    setInviteToken("");
+  }
   if (mine && !data.mine) {
     store.del(MINE_KEY);
     mine = null;
@@ -27,11 +42,18 @@ async function load() {
   if (!mine && data.mine) mine = { id: data.mine.id, key: "" };
 }
 
+// Name used with "only with an account": account name, else the invitation's name
+function fixedName() {
+  if (currentUser()) return currentUser().display_name;
+  const inv = data.invitation;
+  return inv ? inv.name || inv.email.split("@")[0] : "";
+}
+
 function initDraft() {
   draft = data.mine
     ? { name: data.mine.name, answers: structuredClone(data.mine.answers) }
-    : { name: store.get(NAME_KEY) || currentUser()?.display_name || "", answers: {} };
-  if (data.survey.settings.require_login && currentUser()) draft.name = currentUser().display_name;
+    : { name: data.invitation?.name || store.get(NAME_KEY) || currentUser()?.display_name || "", answers: {} };
+  if (data.survey.settings.require_login) draft.name = fixedName();
   for (const q of data.survey.questions) {
     if (q.type === "schedule" && !draft.answers[q.id]) draft.answers[q.id] = {};
   }
@@ -87,7 +109,7 @@ function renderForm() {
     el.append(h("section", { class: "card" }, h("p", { class: "muted" }, t("vote.closed_info"))));
     return;
   }
-  if (s.settings.require_login && !currentUser()) {
+  if (s.settings.require_login && !currentUser() && !data.invitation) {
     el.append(h("section", { class: "card login-needed" },
       h("p", {}, t("vote.login_required")),
       h("a", { class: "btn btn-primary", href: loginUrl() }, t("auth.login"))));
@@ -112,7 +134,8 @@ function renderForm() {
         draft.name = e.target.value;
         dirty = true;
       },
-    }))));
+    })),
+    data.invitation && h("small", { class: "hint" }, t("vote.invited_as", { email: data.invitation.email }))));
   for (const q of s.questions) form.append(questionInput(q));
   form.append(err, h("div", { class: "btn-row" },
     h("button", { type: "submit", class: "btn btn-primary btn-lg" }, t(data.mine ? "vote.save" : "vote.submit")),

@@ -731,6 +731,18 @@ input.search { width: auto; max-width: 220px; padding: 6px 10px; font-size: .9re
 .pill-pending { background: var(--maybe-soft); color: var(--maybe); font-weight: 600; }
 .pill-blocked { background: var(--no-soft); color: var(--danger); font-weight: 600; }
 
+/* invitations (admin page) */
+.invite-progress { margin: 4px 0 12px; }
+.invite-list { margin-bottom: 14px; }
+.invite-list .plist-name small { font-size: .82rem; }
+.invite-add { display: flex; gap: 8px; align-items: flex-start; margin-top: 6px; }
+.invite-add textarea { flex: 1; min-width: 0; }
+.invite-add .btn { flex: none; }
+.auto-remind { margin: 10px 0 0; }
+@media (max-width: 480px) {
+  .invite-add { flex-direction: column; align-items: stretch; }
+}
+
 @media (max-width: 480px) {
   h1 { font-size: 1.35rem; }
   input.title-input { font-size: 1.55rem; }

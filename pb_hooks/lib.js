@@ -319,7 +319,10 @@ function canAdmin(e, survey) {
 function ownsResponse(e, rec) {
   if (checkKey(e.request.header.get("X-Edit-Key"), rec.getString("edit_key"))) return true;
   const u = currentUser(e);
-  return !!u && rec.getString("user") === u.id;
+  if (u && rec.getString("user") === u.id) return true;
+  // Personal invitation link that was used for this response
+  const inv = require(`${__hooks}/invite.js`).fromRequest(e, rec.getString("survey"));
+  return !!inv && inv.getString("response") === rec.id;
 }
 
 function displayName(u) {

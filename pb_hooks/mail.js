@@ -23,6 +23,12 @@ const T = {
     final_body: "<p>Für <strong>{title}</strong> wurde der Termin festgelegt:</p>{slots}{button:link:Zur Umfrage (mit Kalendereintrag)}",
     footer: "Du erhältst diese Mail von {app}. Benachrichtigungen kannst du in deinem Konto abschalten.",
     allday: "ganztägig",
+    survey_invite_subject: "Einladung: {title}",
+    survey_invite_body: "<p>{inviter} lädt dich zur Umfrage <strong>{title}</strong> ein.</p>{desc}{closes}{button:link:Jetzt abstimmen}<p style=\"font-size:13px;color:#6b6b78\">Der Link ist persönlich – leite ihn bitte nicht weiter.</p>",
+    reminder_subject: "Erinnerung: {title}",
+    reminder_body: "<p>Du hast bei <strong>{title}</strong> noch nicht abgestimmt.</p>{closes}{button:link:Jetzt abstimmen}",
+    closes: "Die Umfrage schließt am {date}.",
+    footer_invite: "Du erhältst diese Mail, weil {inviter} dich zu dieser Umfrage eingeladen hat.",
   },
   en: {
     otp_subject: "Your sign-in code: {code}",
@@ -43,6 +49,12 @@ const T = {
     final_body: "<p>The date for <strong>{title}</strong> has been set:</p>{slots}{button:link:Open poll (with calendar entry)}",
     footer: "You receive this email from {app}. You can turn off notifications in your account.",
     allday: "all day",
+    survey_invite_subject: "Invitation: {title}",
+    survey_invite_body: "<p>{inviter} invites you to the poll <strong>{title}</strong>.</p>{desc}{closes}{button:link:Vote now}<p style=\"font-size:13px;color:#6b6b78\">This link is personal – please don't forward it.</p>",
+    reminder_subject: "Reminder: {title}",
+    reminder_body: "<p>You haven't voted in <strong>{title}</strong> yet.</p>{closes}{button:link:Vote now}",
+    closes: "The poll closes on {date}.",
+    footer_invite: "You receive this email because {inviter} invited you to this poll.",
   },
   fr: {
     otp_subject: "Votre code de connexion : {code}",
@@ -63,6 +75,12 @@ const T = {
     final_body: "<p>La date pour <strong>{title}</strong> a été fixée :</p>{slots}{button:link:Ouvrir le sondage (avec entrée de calendrier)}",
     footer: "Vous recevez cet e-mail de {app}. Vous pouvez désactiver les notifications dans votre compte.",
     allday: "toute la journée",
+    survey_invite_subject: "Invitation : {title}",
+    survey_invite_body: "<p>{inviter} vous invite au sondage <strong>{title}</strong>.</p>{desc}{closes}{button:link:Voter maintenant}<p style=\"font-size:13px;color:#6b6b78\">Ce lien est personnel – merci de ne pas le transférer.</p>",
+    reminder_subject: "Rappel : {title}",
+    reminder_body: "<p>Vous n’avez pas encore voté pour <strong>{title}</strong>.</p>{closes}{button:link:Voter maintenant}",
+    closes: "Le sondage se termine le {date}.",
+    footer_invite: "Vous recevez cet e-mail car {inviter} vous a invité à ce sondage.",
   },
 };
 
@@ -105,10 +123,10 @@ function render(lang, key, vars) {
     .replace(/\{button:(\w+):([^}]+)\}/g, (m, k, label) =>
       '<p style="margin:24px 0"><a href="' + esc(all[k]) + '" style="background:#6d4ae0;color:#fff;padding:11px 18px;border-radius:9px;text-decoration:none;font-weight:600;display:inline-block">' + esc(label) + "</a></p>" +
       '<p data-url style="font-size:12px;color:#6b6b78;word-break:break-all">' + esc(all[k]) + "</p>")
-    .replace(/\{(names|slots)\}/g, (m, k) => (k + "_html") in all ? all[k + "_html"] : "");
+    .replace(/\{(\w+)\}/g, (m, k) => ((k + "_html") in all ? all[k + "_html"] : m));
   body = fill(body, true);
   const html = '<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:15px;line-height:1.5;color:#16161b;max-width:520px">' +
-    body + (key === "digest" || key === "final" ? '<hr style="border:0;border-top:1px solid #e4e4ea;margin:28px 0 12px"><p style="font-size:12px;color:#6b6b78">' + fill(d.footer, true) + "</p>" : "") + "</div>";
+    body + (key === "digest" || key === "final" || key === "survey_invite" || key === "reminder" ? '<hr style="border:0;border-top:1px solid #e4e4ea;margin:28px 0 12px"><p style="font-size:12px;color:#6b6b78">' + fill(key === "digest" || key === "final" ? d.footer : d.footer_invite, true) + "</p>" : "") + "</div>";
   const text = html.replace(/<p data-url[^>]*>[^<]*<\/p>/g, "").replace(/<a href="([^"]+)"[^>]*>([^<]*)<\/a>/g, "$2: $1").replace(/<br\s*\/?>|<\/p>|<\/li>/g, "\n").replace(/<[^>]+>/g, "")
     .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\n{3,}/g, "\n\n").trim();
   return { subject: fill(d[key + "_subject"], false), html: html, text: text };

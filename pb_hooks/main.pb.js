@@ -35,6 +35,7 @@ routerAdd("GET", "/api/eventi/surveys/{id}", (e) => {
   const rec = lib.findSurvey(e.request.pathValue("id"));
   const admin = lib.canAdmin(e, rec);
   const user = lib.currentUser(e);
+  const invitation = require(`${__hooks}/invite.js`).fromRequest(e, rec.id);
   const records = $app.findRecordsByFilter("responses", "survey = {:id}", "created", 0, 0, { id: rec.id });
 
   const rid = e.request.header.get("X-Response-Id");
@@ -45,7 +46,8 @@ routerAdd("GET", "/api/eventi/surveys/{id}", (e) => {
     const dto = lib.responseDTO(records[i]);
     const byKey = rid && dto.id === rid && lib.checkKey(rkey, records[i].getString("edit_key"));
     const byAccount = user && records[i].getString("user") === user.id;
-    if (byKey || byAccount) mine = dto;
+    const byInvite = invitation && invitation.getString("response") === dto.id;
+    if (byKey || byAccount || byInvite) mine = dto;
     responses.push(dto);
   }
 
@@ -62,6 +64,8 @@ routerAdd("GET", "/api/eventi/surveys/{id}", (e) => {
     count: responses.length,
     responses: canSee ? responses : null,
     mine: mine,
+    // Opened via a personal invitation link
+    invitation: invitation ? { name: invitation.getString("name"), email: invitation.getString("email") } : null,
   });
 });
 
@@ -91,21 +95,30 @@ routerAdd("POST", "/api/eventi/surveys/{id}/responses", (e) => {
   const survey = lib.findSurvey(e.request.pathValue("id"));
   if (lib.isClosed(survey)) lib.fail("err.closed");
   const settings = lib.surveyDTO(survey).settings;
-  const user = settings.require_login ? lib.requireUser(e) : lib.currentUser(e);
+  const invite = require(`${__hooks}/invite.js`);
+  // A personal invitation link proves the address too, so it counts like a login
+  const invitation = invite.fromRequest(e, survey.id);
+  const user = settings.require_login && !invitation ? lib.requireUser(e) : lib.currentUser(e);
   const count = $app.countRecords("responses", $dbx.hashExp({ survey: survey.id }));
   if (count >= lib.maxResponses()) lib.fail("err.max_responses");
   if (user && $app.countRecords("responses", $dbx.hashExp({ survey: survey.id, user: user.id })) > 0) lib.fail("err.already_voted");
+  if (invitation && invitation.getString("response")) lib.fail("err.already_voted");
 
   const body = lib.readBody(e);
   const rec = new Record($app.findCollectionByNameOrId("responses"));
   rec.set("survey", survey.id);
-  // With mandatory login the account name is used, so nobody votes under someone else's name
-  rec.set("name", settings.require_login ? lib.displayName(user).slice(0, 60) : lib.cleanStr(body.name, "name", true));
+  // With mandatory login the account (or invitation) name is used, so nobody votes under someone else's name
+  let name;
+  if (!settings.require_login) name = lib.cleanStr(body.name, "name", true);
+  else if (user) name = lib.displayName(user);
+  else name = invitation.getString("name") || invitation.getString("email").split("@")[0];
+  rec.set("name", name.slice(0, 60));
   rec.set("answers", lib.cleanAnswers(lib.readJSON(survey, "questions", []), body.answers));
   if (user) rec.set("user", user.id);
   const key = lib.newKey();
   rec.set("edit_key", key);
   $app.save(rec);
+  invite.linkResponse(e, survey, rec, user);
   lib.notify(survey.id);
   require(`${__hooks}/notify.js`).responseAdded(survey, rec);
   return e.json(200, { id: rec.id, edit_key: key });
