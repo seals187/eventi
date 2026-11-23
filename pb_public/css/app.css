@@ -64,7 +64,9 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 /* Base UI scale: eventi's "100 %" is 87.5 % of the design size (keep in sync with BASE_SCALE in js/header.js) */
-html { -webkit-text-size-adjust: 100%; zoom: .875; }
+/* scrollbar-gutter: always reserve the scrollbar space, so switching between short and long views (tabs)
+   never shifts the layout sideways */
+html { -webkit-text-size-adjust: 100%; zoom: .875; scrollbar-gutter: stable; }
 
 body {
   margin: 0;

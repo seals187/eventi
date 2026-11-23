@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.env` is now required: `docker compose` refuses to start without it, and `EVENTI_BIND_IP` / `EVENTI_PORT`
   must be set there (no silent defaults for the published port)
 
+### Fixed
+- Switching tabs (overview / my answer / all answers) no longer shifts the page sideways: the scrollbar
+  space is always reserved (`scrollbar-gutter: stable`)
+
 ## [0.0.4] – 2026-11-23
 
 ### Changed
