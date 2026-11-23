@@ -1195,41 +1195,68 @@ main.wrap.wide { max-width: 1180px; }
 @media (min-width: 1000px) {
   .admin-grid { grid-template-columns: 380px minmax(0, 1fr); align-items: start; }
 }
-.wide .page-head { margin-bottom: 14px; }
-.wide .page-title { font-size: 1.7rem; margin-bottom: 2px; }
-.wide .head-row { margin-bottom: 8px; }
-.wide .card { padding: 14px 16px; }
-.wide .card-head { margin-bottom: 10px; }
-.wide .card-head h2 { font-size: 1.05rem; }
-.wide .fav { gap: 14px; }
-.wide .fav .ring { width: 64px; height: 64px; }
-.wide .fav .ring-text strong { font-size: .95rem; }
-.wide .fav-date { font-size: 1.25rem; }
-.wide .fav-main .eyebrow { margin-bottom: 2px; }
-.wide .fav-main .muted { font-size: .88rem; }
+:is(.wide, .compact) .page-head { margin-bottom: 14px; }
+:is(.wide, .compact) .page-title { font-size: 1.7rem; margin-bottom: 2px; }
+:is(.wide, .compact) .head-row { margin-bottom: 8px; }
+:is(.wide, .compact) .card { padding: 14px 16px; }
+:is(.wide, .compact) .card-head { margin-bottom: 10px; }
+:is(.wide, .compact) .card-head h2 { font-size: 1.05rem; }
+:is(.wide, .compact) .fav { gap: 14px; }
+:is(.wide, .compact) .fav .ring { width: 64px; height: 64px; }
+:is(.wide, .compact) .fav .ring-text strong { font-size: .95rem; }
+:is(.wide, .compact) .fav-date { font-size: 1.25rem; }
+:is(.wide, .compact) .fav-main .eyebrow { margin-bottom: 2px; }
+:is(.wide, .compact) .fav-main .muted { font-size: .88rem; }
 .admin-side .fav { flex-wrap: wrap; }
 .admin-side .fav-main { flex: 1 1 160px; }
 .admin-side .fav > .btn, .admin-side .fav-actions { flex: 1 1 100%; }
 .admin-side .fav > .btn { justify-content: center; }
 .admin-side .link-row input { flex: 1 1 100%; }
 .admin-side .link-row .btn-primary { flex: 1; justify-content: center; }
-.wide .link-foot { margin-top: 8px; }
-.wide .participants .card-foot { margin-top: 10px; padding-top: 10px; }
-.wide .pchip { padding: 3px 10px; font-size: .85rem; }
-.wide .invite-form { margin-top: 10px; }
+:is(.wide, .compact) .link-foot { margin-top: 8px; }
+:is(.wide, .compact) .participants .card-foot { margin-top: 10px; padding-top: 10px; }
+:is(.wide, .compact) .pchip { padding: 3px 10px; font-size: .85rem; }
+:is(.wide, .compact) .invite-form { margin-top: 10px; }
 /* compact matrix */
-.wide .matrix2 th, .wide .matrix2 td { padding: 5px 8px; }
-.wide .mc { width: 32px; height: 26px; border-radius: 7px; }
-.wide .person { gap: 8px; min-width: 130px; }
-.wide .person .avatar { width: 26px; height: 26px; font-size: .72rem; }
-.wide .person small { font-size: .74rem; }
-.wide .mhead strong { font-size: .95rem; }
-.wide .mfoot-n { font-size: .95rem; margin-bottom: 4px; }
-.wide .legend-chips { margin-top: 10px; }
-.wide .legend-chips .vpill { padding: 3px 10px; font-size: .82rem; }
-.wide .comments-wrap { margin-top: 12px; padding-top: 12px; }
-.wide .comments { gap: 8px; }
-.wide .comments li .avatar { width: 28px; height: 28px; }
-.wide .icon-pill, .wide .menu-boxed > .menu-trigger { width: 36px; height: 36px; }
-.wide .head-actions .btn { padding-block: 7px; }
+:is(.wide, .compact) .matrix2 th, .wide .matrix2 td { padding: 5px 8px; }
+:is(.wide, .compact) .mc { width: 32px; height: 26px; border-radius: 7px; }
+:is(.wide, .compact) .person { gap: 8px; min-width: 130px; }
+:is(.wide, .compact) .person .avatar { width: 26px; height: 26px; font-size: .72rem; }
+:is(.wide, .compact) .person small { font-size: .74rem; }
+:is(.wide, .compact) .mhead strong { font-size: .95rem; }
+:is(.wide, .compact) .mfoot-n { font-size: .95rem; margin-bottom: 4px; }
+:is(.wide, .compact) .legend-chips { margin-top: 10px; }
+:is(.wide, .compact) .legend-chips .vpill { padding: 3px 10px; font-size: .82rem; }
+:is(.wide, .compact) .comments-wrap { margin-top: 12px; padding-top: 12px; }
+:is(.wide, .compact) .comments { gap: 8px; }
+:is(.wide, .compact) .comments li .avatar { width: 28px; height: 28px; }
+:is(.wide, .compact) .icon-pill, .wide .menu-boxed > .menu-trigger { width: 36px; height: 36px; }
+:is(.wide, .compact) .head-actions .btn { padding-block: 7px; }
 .top-in.wrap-wide { max-width: 1180px; }
+
+/* voting page: compact tabs, overview and "my answer" */
+.compact .page-head .meta { margin-bottom: 10px; }
+.compact .tabs { margin-bottom: 12px; padding: 4px; }
+.compact .tab { padding: 7px 8px; }
+.compact .tab-body > .card { margin-bottom: 12px; }
+.compact .card-foot { margin-top: 12px; }
+.compact .ov-row { padding: 9px 0; }
+.compact .ov-group small { margin-top: 4px; }
+.compact .vpill { padding: 4px 11px; font-size: .86rem; }
+.compact .answer-who { padding-bottom: 12px; gap: 12px; }
+.compact .avatar-lg { width: 40px; height: 40px; font-size: .9rem; }
+.compact .answer-block { padding: 12px 0; }
+.compact .slot-block + .slot-block { margin-top: 10px; padding-top: 10px; }
+.compact .slot-block-head { margin-bottom: 6px; font-size: 1rem; }
+.compact .choice3 { gap: 8px; }
+.compact .ans-btn { padding: 8px 6px; border-radius: 10px; }
+.compact .choices { gap: 6px; }
+.compact .choice { padding-block: 8px; }
+/* wide enough: date and yes/maybe/no buttons on one line */
+@media (min-width: 600px) {
+  .compact .slot-block { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 12px; }
+  .compact .slot-block-head { flex-direction: column; justify-content: center; gap: 0; margin: 0; line-height: 1.25; }
+  .compact .slot-block-head .muted { font-size: .85rem; }
+}
+.compact .answer-card .error:empty { display: none; }
+.compact .answer-card .card-foot { margin-top: 10px; }

@@ -79,6 +79,7 @@ const needsLogin = () => data.survey.settings.require_login && !currentUser() &&
 function render() {
   const s = data.survey;
   document.title = `${s.title} · eventi`;
+  app.classList.add("compact");
   if (!tab) tab = data.mine || s.is_closed ? "overview" : "mine";
   els.head = h("div", { class: "page-head" });
   els.tabs = h("div", { class: "tabs", role: "tablist" });

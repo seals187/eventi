@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The account setting hint moved into the tooltip of the “Account” chip
 - Admin page: two columns on wide screens (favourite, sharing and participants | answer matrix),
   more compact cards, ring and matrix rows; the reminder note became the button tooltip
+- Voting page more compact: smaller tabs and rows; in “my answer” the date and the yes / maybe / no
+  buttons share one line on wider screens
 
 ## [0.0.2] – 2026-11-23
 
