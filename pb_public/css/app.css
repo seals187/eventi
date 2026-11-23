@@ -1271,3 +1271,24 @@ textarea.comment-input { resize: none; overflow: hidden; min-height: 0; line-hei
 .chip-val { display: inline-grid; justify-items: start; }
 .chip-val > * { grid-area: 1 / 1; }
 .chip-val > .ghost { visibility: hidden; }
+
+/* voting page: tighter "my answer" so the whole form fits on one screen */
+.compact .page-head { margin-bottom: 10px; }
+.compact .page-title { font-size: 1.55rem; }
+.compact .desc.lead { font-size: .95rem; }
+.compact .tabs { margin-bottom: 10px; }
+.compact .answer-card { padding-block: 12px; }
+.compact .answer-who { padding-bottom: 10px; }
+.compact .avatar-lg { width: 34px; height: 34px; font-size: .82rem; }
+.compact .answer-who-main { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 14px; row-gap: 4px; }
+.compact .answer-who-main > small { flex-basis: 100%; }
+.compact input.name-input { max-width: 260px; padding: 6px 10px; }
+.compact .answer-block { padding: 8px 0; }
+.compact .slot-block + .slot-block { margin-top: 6px; padding-top: 6px; }
+.compact .ans-btn { padding: 6px; }
+.compact .comment-block .field-label { margin: 0; font-size: .88rem; }
+.compact .answer-card .card-foot { margin-top: 8px; }
+@media (min-width: 600px) {
+  /* comment: label in the date column, field next to it (same grid as the slots) */
+  .compact .comment-block { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 12px; }
+}

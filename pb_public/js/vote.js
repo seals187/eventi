@@ -214,7 +214,7 @@ function renderMine() {
   },
   who,
   s.questions.map((q) => questionInput(q, editable, s.questions.length > 1)),
-  h("label", { class: "answer-block" },
+  h("label", { class: "answer-block comment-block" },
     h("span", { class: "field-label muted" }, t("mine.comment")),
     // One line high like the placeholder; grows with the text
     autoTextarea({
@@ -229,7 +229,7 @@ function renderMine() {
     data.mine
       ? h("button", { type: "button", class: "btn-link danger", onclick: deleteMine }, t("vote.delete"))
       : h("span"),
-    h("button", { type: "submit", class: "btn btn-primary btn-lg" }, t(data.mine ? "vote.save" : "vote.submit"))),
+    h("button", { type: "submit", class: "btn btn-primary" }, t(data.mine ? "vote.save" : "vote.submit"))),
   !editable && h("p", { class: "muted small" }, t(s.is_closed ? "vote.closed_info" : "err.edit_disabled")));
   setChildren(els.body, form);
 }
