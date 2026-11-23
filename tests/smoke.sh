@@ -53,6 +53,9 @@ ANSWERS='{"name":"Anna","answers":{}}'
 echo "== Config"
 req GET /api/eventi/config
 check "config reachable" 200 "$CODE"
+check "survey rules: title limit" 200 "$(jpath rules.limits.title)"
+check "survey rules: response limit from env" 10 "$(jpath rules.limits.responses)"
+check "survey rules: default results mode" always "$(jpath rules.defaults.results)"
 
 echo "== Login"
 req POST /api/eventi/surveys "$SURVEY"
@@ -166,7 +169,7 @@ check "final: valid slot is stored" 1 "$(printf '%s' "$BODY" | grep -c '"final":
 
 mk '{}'
 req GET /api/eventi/config
-MAXR=$(json max_responses)
+MAXR=$(jpath rules.limits.responses)
 for _ in $(seq 1 "$MAXR"); do req POST "/api/eventi/surveys/$RSID/responses" "$ANSWERS"; done
 req POST "/api/eventi/surveys/$RSID/responses" "$ANSWERS"
 check "response limit ($MAXR) enforced" "Err.max_responses." "$(msg)"

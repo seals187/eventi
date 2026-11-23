@@ -6,7 +6,7 @@
 
 const LIMITS = {
   title: 200, description: 2000, question_label: 300, option: 200, name: 60, text: 2000, comment: 1000,
-  questions: 20, options: 50, slots: 200,
+  questions: 20, options: 50, options_min: 2, slots: 200,
 };
 const ID_RE = /^[a-z0-9]{1,16}$/;
 const SLOT_RE = /^(\d{4})-(\d{2})-(\d{2})(T([01]\d|2[0-3]):[0-5]\d)?$/;
@@ -94,7 +94,7 @@ function cleanQuestions(list) {
     const c = { id: id, type: q.type, label: cleanStr(q.label, "question_label", true), required: q.required === true };
     if (q.type === "choice") {
       c.options = uniqueStrings(q.options, "option");
-      if (c.options.length < 2) fail("err.options_min");
+      if (c.options.length < LIMITS.options_min) fail("err.options_min");
       if (c.options.length > LIMITS.options) fail("err.too_many_options");
       c.multi = q.multi === true;
     } else if (q.type === "schedule") {
@@ -247,6 +247,16 @@ function maxResponses() {
   return n > 0 ? n : 100;
 }
 
+// Survey rules (see GLOSSARY.md) for the client: the same limits, settings and defaults this module
+// validates with, so the browser never hard-codes them
+function rulesDTO() {
+  return {
+    limits: Object.assign({ responses: maxResponses() }, LIMITS),
+    results: RESULTS.slice(),
+    defaults: cleanSettings({}),
+  };
+}
+
 // Pushes a "changed" ping to realtime clients subscribed to "eventi:<surveyId>".
 function notify(surveyId) {
   const topic = "eventi:" + surveyId;
@@ -350,7 +360,7 @@ function cleanLang(l) {
 
 module.exports = {
   fail, readBody, readJSON, newKey, checkKey, cleanStr, cleanAnswers, applySurvey,
-  isClosed, findSurvey, findResponse, surveyDTO, responseDTO, maxResponses, notify, isoDate,
+  isClosed, findSurvey, findResponse, surveyDTO, responseDTO, maxResponses, notify, isoDate, rulesDTO,
   mailEnabled, signupConfig, signupStatus, currentUser, requireUser, requireAdmin, isOwner, canAdmin, adminSurvey,
   displayName, userDTO, cleanLang,
 };

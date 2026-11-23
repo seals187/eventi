@@ -2,6 +2,7 @@ import { h, uid, params, hashParams, publicUrl, adminUrl, iconBtn, linkBox, erro
 import { t, tn, initI18n, onLangChange, fmtDate, parseSlot } from "./i18n.js";
 import { api, surveyClient, errMsg, currentUser } from "./api.js";
 import { initHeader, renderMineMenu, loginUrl, ownSurveys } from "./header.js";
+import { limit, resultModes, defaultSettings } from "./rules.js";
 
 const app = document.getElementById("app");
 const editId = params.get("edit");
@@ -77,7 +78,7 @@ function blank() {
     title: "",
     description: "",
     questions: [],
-    settings: { results: "always", allow_edit: true, require_login: false },
+    settings: defaultSettings(),
     closes_at: "",
     template: null,   // key of the chosen template (or "blank")
     showDesc: false,
@@ -140,9 +141,9 @@ function validate(p) {
   if (!p.questions.length) return "err.questions_required";
   for (const q of p.questions) {
     if (!q.label) return "err.question_label_required";
-    if (q.type === "choice" && q.options.length < 2) return "err.options_min";
+    if (q.type === "choice" && q.options.length < limit("options_min")) return "err.options_min";
     if (q.type === "schedule" && !q.slots.length) return "err.slots_min";
-    if (q.type === "schedule" && q.slots.length > 200) return "err.too_many_slots";
+    if (q.type === "schedule" && q.slots.length > limit("slots")) return "err.too_many_slots";
   }
   return null;
 }
@@ -158,13 +159,13 @@ function render() {
   app.append(h("section", { class: "compose-head" },
     editId && h("p", { class: "eyebrow accent" }, t("create.eyebrow_edit")),
     h("input", {
-      type: "text", class: "title-input", maxlength: 200, value: state.title,
+      type: "text", class: "title-input", maxlength: limit("title"), value: state.title,
       placeholder: t("create.title_ph"), "aria-label": t("create.survey_title"),
       oninput: (e) => (state.title = e.target.value),
     }),
     showDesc
       ? autoTextarea({
-        class: "desc-input", maxlength: 2000, value: state.description,
+        class: "desc-input", maxlength: limit("description"), value: state.description,
         placeholder: t("create.description_ph"), "aria-label": t("create.description"),
         oninput: (e) => (state.description = e.target.value),
       })
@@ -192,7 +193,7 @@ function render() {
     app.append(h("div", { class: "add-chips" },
       h("span", { class: "muted" }, t("create.add_question")),
       ["schedule", "choice", "text"].map((type) => h("button", {
-        type: "button", class: `tag tag-${type} tag-btn`, disabled: state.questions.length >= 20,
+        type: "button", class: `tag tag-${type} tag-btn`, disabled: state.questions.length >= limit("questions"),
         onclick: () => addQuestion(type),
       }, t(`qtype.${type}`)))));
   }
@@ -281,10 +282,10 @@ function settingsChips() {
   }, chip(label, t(s[prop] ? "set.yes" : "set.no"), [t("set.yes"), t("set.no")]));
 
   const results = h("details", { class: "menu set-menu" },
-    h("summary", { class: "set-chip" }, chip(t("set.results"), t(`set.results_${s.results}`), ["always", "after_vote", "hidden"].map((v) => t(`set.results_${v}`)))),
+    h("summary", { class: "set-chip" }, chip(t("set.results"), t(`set.results_${s.results}`), resultModes().map((v) => t(`set.results_${v}`)))),
     h("div", { class: "menu-pop menu-left" },
       h("p", { class: "menu-title" }, t("settings.results")),
-      ["always", "after_vote", "hidden"].map((v) => h("button", {
+      resultModes().map((v) => h("button", {
         type: "button", class: "menu-item", onclick: () => {
           s.results = v;
           render();
@@ -374,7 +375,7 @@ function questionCard(q, i) {
         },
       ])),
     h("input", {
-      type: "text", class: "q-label", maxlength: 300, value: q.label,
+      type: "text", class: "q-label", maxlength: limit("question_label"), value: q.label,
       placeholder: t(`create.qlabel_ph_${q.type}`), "aria-label": t("create.question"),
       oninput: (e) => (q.label = e.target.value),
     }),
@@ -392,10 +393,10 @@ function choiceBody(q, rerender, body) {
   const rows = q.options.map((o, j) => h("div", { class: "opt-row" },
     h("span", { class: "opt-dot", "aria-hidden": "true" }),
     h("input", {
-      type: "text", value: o, maxlength: 200, placeholder: t("create.option_n", { n: j + 1 }),
+      type: "text", value: o, maxlength: limit("option"), placeholder: t("create.option_n", { n: j + 1 }),
       oninput: (e) => (q.options[j] = e.target.value),
       onkeydown: (e) => {
-        if (e.key !== "Enter" || q.options.length >= 50) return;
+        if (e.key !== "Enter" || q.options.length >= limit("options")) return;
         e.preventDefault();
         q.options.splice(j + 1, 0, "");
         rerender();
@@ -408,7 +409,7 @@ function choiceBody(q, rerender, body) {
     })));
   return [
     h("div", { class: "opts" }, rows),
-    q.options.length < 50 && h("button", {
+    q.options.length < limit("options") && h("button", {
       type: "button", class: "btn-link",
       onclick: () => {
         q.options.push("");

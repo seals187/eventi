@@ -10,6 +10,7 @@ import {
 } from "./results.js";
 import { initHeader, loginUrl } from "./header.js";
 import { surveyCredentials } from "./credentials.js";
+import { limit } from "./rules.js";
 
 const app = document.getElementById("app");
 const id = params.get("id");
@@ -171,7 +172,7 @@ function renderMine() {
         data.participant.name_fixed
           ? h("small", { class: "muted" }, t("vote.as_account", { name: draft.name }))
           : h("input", {
-            type: "text", class: "name-input", maxlength: 60, value: draft.name, autocomplete: "name",
+            type: "text", class: "name-input", maxlength: limit("name"), value: draft.name, autocomplete: "name",
             placeholder: t("vote.name_ph"), "aria-label": t("vote.name"),
             oninput: (e) => {
               draft.name = e.target.value;
@@ -193,7 +194,7 @@ function renderMine() {
     h("span", { class: "field-label muted" }, t("mine.comment")),
     // One line high like the placeholder; grows with the text
     autoTextarea({
-      class: "comment-input", maxlength: 1000, value: draft.comment, disabled: !editable, placeholder: t("mine.comment_ph"),
+      class: "comment-input", maxlength: limit("comment"), value: draft.comment, disabled: !editable, placeholder: t("mine.comment_ph"),
       oninput: (e) => {
         draft.comment = e.target.value;
         dirty = true;
@@ -252,7 +253,7 @@ function questionInput(q, editable, several) {
         h("span", {}, o)))));
   } else {
     block.append(h("textarea", {
-      rows: 3, maxlength: 2000, value: draft.answers[q.id] || "", "aria-label": q.label, disabled: !editable,
+      rows: 3, maxlength: limit("text"), value: draft.answers[q.id] || "", "aria-label": q.label, disabled: !editable,
       oninput: (e) => {
         draft.answers[q.id] = e.target.value;
         dirty = true;

@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Internal: one survey client in the browser (`surveyClient`) holds the survey id and credentials, so pages
   no longer know endpoints or header names; one server guard (`adminSurvey`) replaces seven copies of
   "find survey, check management right"; `/api/eventi/me/surveys` returns `admin_key` instead of `key`
+- Internal: survey rules (limits, result modes, default settings, response limit) come from the server
+  in `/api/eventi/config` (`rules`); the browser no longer hard-codes them. `max_responses` moved to
+  `rules.limits.responses`
 
 ## [0.0.7] – 2026-11-23
 
