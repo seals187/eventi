@@ -4,7 +4,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] – 2026-11-24
+
+Architecture refactor (see GLOSSARY.md): participant, survey client, survey rules, outbox and locale
+modules. The UI is unchanged; failed emails are now visible in the PocketBase dashboard (`outbox`).
+The update runs a database migration that moves pending emails into the outbox.
 
 ### Changed
 - Internal: one participant module on the server decides which response is the participant's own
@@ -130,6 +134,7 @@ First public release.
 - Test suite `tests/docker-test.sh`: isolated container with Mailpit, API and email flow tests;
   the test container keeps running for manual testing
 
+[0.1.0]: https://github.com/seals187/eventi/compare/v0.0.7...v0.1.0
 [0.0.7]: https://github.com/seals187/eventi/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/seals187/eventi/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/seals187/eventi/compare/v0.0.4...v0.0.5
