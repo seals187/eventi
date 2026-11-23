@@ -274,6 +274,7 @@
   "invites.added": "{n} invitation(s) are being sent.",
   "invites.added_skipped": "{n} invitation(s) are being sent, {m} had already been invited.",
   "invites.remind": "Remind pending ({n})",
+  "invites.all_voted": "Everyone has voted",
   "invites.remind_confirm": "Send a reminder to {n} person(s) who haven't voted yet?",
   "invites.reminded": "{n} reminder(s) are being sent.",
   "invites.reminded_none": "Everyone pending was already reminded in the last 12 hours.",

@@ -1,4 +1,4 @@
-import { h, toast, iconBtn, icon } from "./util.js";
+import { h, toast, iconBtn, icon, setChildren } from "./util.js";
 import { t, appConfig, fmtDate } from "./i18n.js";
 import { api, errMsg } from "./api.js";
 
@@ -82,7 +82,7 @@ function paint() {
     return h("span", { class: "pill pill-pending" }, t("invites.open"));
   };
 
-  box.replaceChildren(
+  setChildren(box,
     h("div", { class: "card-head" },
       h("h2", {}, t("invites.title")),
       list.length > 0 && h("span", { class: "muted small" }, t("invites.progress", { n: voted, total: list.length }))),
@@ -98,8 +98,9 @@ function paint() {
       ta,
       h("button", { type: "button", class: "btn btn-primary", disabled: busy, onclick: add }, icon("mail"), t("invites.add"))),
     mail && !s.is_closed && h("small", { class: "hint" }, t("invites.hint")),
-    mail && open > 0 && !s.is_closed && h("div", { class: "btn-row" },
-      h("button", { type: "button", class: "btn", disabled: busy, onclick: remind }, t("invites.remind", { n: open }))),
+    mail && list.length > 0 && !s.is_closed && h("div", { class: "btn-row" },
+      h("button", { type: "button", class: "btn", disabled: busy || open === 0, onclick: remind },
+        icon("mail"), open > 0 ? t("invites.remind", { n: open }) : t("invites.all_voted"))),
     mail && list.length > 0 && !s.is_closed && h("p", { class: "muted small auto-remind" },
       s.closes_at ? t("invites.auto_on") : t("invites.auto_off")));
 }

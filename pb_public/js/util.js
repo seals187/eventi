@@ -20,6 +20,12 @@ export function h(tag, attrs, ...children) {
   return el;
 }
 
+// Like el.replaceChildren(), but skips null/false/0 from "cond && h(...)" (the native
+// method would render them as the text "false" / "0")
+export function setChildren(el, ...children) {
+  el.replaceChildren(...children.flat(Infinity).filter((c) => c != null && c !== false && c !== 0 && c !== ""));
+}
+
 export const store = {
   get(key) {
     try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }

@@ -1,4 +1,4 @@
-import { h, field, toast, menu, icon } from "./util.js";
+import { h, field, toast, menu, icon, setChildren } from "./util.js";
 import { t, initI18n, onLangChange, appConfig, fmtDate } from "./i18n.js";
 import { api, errMsg, currentUser, isAdmin } from "./api.js";
 import { initHeader, loginUrl } from "./header.js";
@@ -121,7 +121,7 @@ function render() {
     },
   });
 
-  app.replaceChildren(
+  setChildren(app,
     h("p", { class: "eyebrow accent" }, t("users.eyebrow")),
     h("h1", { class: "page-title" }, t("users.title")),
     inviteCard(),

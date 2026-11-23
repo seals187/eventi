@@ -274,6 +274,7 @@
   "invites.added": "{n} Einladung(en) werden verschickt.",
   "invites.added_skipped": "{n} Einladung(en) werden verschickt, {m} war(en) schon eingeladen.",
   "invites.remind": "Offene erinnern ({n})",
+  "invites.all_voted": "Alle haben abgestimmt",
   "invites.remind_confirm": "Erinnerung an {n} Person(en) schicken, die noch nicht abgestimmt haben?",
   "invites.reminded": "{n} Erinnerung(en) werden verschickt.",
   "invites.reminded_none": "Alle Offenen wurden in den letzten 12 Stunden schon erinnert.",

@@ -274,6 +274,7 @@
   "invites.added": "{n} invitation(s) en cours d’envoi.",
   "invites.added_skipped": "{n} invitation(s) en cours d’envoi, {m} déjà invitée(s).",
   "invites.remind": "Relancer les personnes en attente ({n})",
+  "invites.all_voted": "Tout le monde a voté",
   "invites.remind_confirm": "Envoyer un rappel aux {n} personne(s) qui n’ont pas encore voté ?",
   "invites.reminded": "{n} rappel(s) en cours d’envoi.",
   "invites.reminded_none": "Toutes les personnes en attente ont déjà été relancées ces 12 dernières heures.",
