@@ -1,5 +1,10 @@
 # eventi
 
+[![Latest release](https://img.shields.io/github/v/release/seals187/eventi?label=release&sort=semver)](https://github.com/seals187/eventi/releases/latest)
+[![Docker image](https://img.shields.io/github/v/tag/seals187/eventi?label=ghcr.io%2Fseals187%2Feventi&logo=docker&sort=semver)](https://github.com/seals187/eventi/pkgs/container/eventi)
+[![Release build](https://img.shields.io/github/actions/workflow/status/seals187/eventi/docker.yml?label=build)](https://github.com/seals187/eventi/actions/workflows/docker.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+
 Lightweight, self-hosted tool for polls and finding dates – with user accounts, personal invitations and reminders.
 HTML/CSS/vanilla JS on top of [PocketBase](https://pocketbase.io) (SQLite), shipped as a single container. No build step.
 
@@ -27,11 +32,22 @@ App: http://localhost:8090 · PocketBase dashboard: http://localhost:8090/_/
 
 The first eventi admin (and dashboard superuser) is `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` from `.env`.
 
-A prebuilt image is published for every release:
+A prebuilt image is published automatically for every release (see the badges above for the current version):
 
 ```bash
-docker pull ghcr.io/seals187/eventi:latest      # or a fixed version, e.g. :0.0.3
+docker pull ghcr.io/seals187/eventi:latest      # or a fixed version: ghcr.io/seals187/eventi:<version>
 ```
+
+### Releasing
+
+Bump `VERSION`, `EVENTI_VERSION` in `docker-compose.yml` and add a section to `CHANGELOG.md`, then push a tag:
+
+```bash
+git tag -a v0.0.4 -m "eventi 0.0.4" && git push origin main v0.0.4
+```
+
+The workflow `.github/workflows/docker.yml` builds and publishes the Docker image (amd64 + arm64,
+tags `<version>`, `<major>.<minor>`, `latest`) and creates the GitHub release with the CHANGELOG section as notes.
 
 Development with live-mounted files (hooks reload automatically on change):
 
