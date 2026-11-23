@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Display size control in the header (− / +, left of the account menu): 70 % to 110 % in 5 % steps,
   click the percentage to reset; stored per browser
 
+### Changed
+- Compact poll editor: smaller calendar (flat day cells), question options as small toggles in the
+  card header, tighter spacing – a template like “Team dinner” fits on one laptop screen
+- The account setting hint moved into the tooltip of the “Account” chip
+
 ## [0.0.2] – 2026-11-23
 
 ### Changed

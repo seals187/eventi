@@ -1155,3 +1155,34 @@ input.q-label:hover { border-bottom-color: var(--border); }
 @media (max-width: 480px) {
   .zoom-btn { padding: 0 8px; }
 }
+
+/* compact editor: a template like "Teamessen" should fit on one screen */
+.compose-head { margin-bottom: 12px; }
+.tpl-bar { margin-bottom: 12px; padding-block: 6px; }
+#questions > .q-card { margin-bottom: 12px; }
+.q-card { padding: 14px 18px 16px; }
+.q-head { flex-wrap: wrap; row-gap: 6px; margin-bottom: 6px; }
+.q-toggles { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.q-toggles .tchip { padding: 3px 9px; font-size: .78rem; border-radius: 99px; }
+.q-toggles .tchip .ic { font-size: .8rem; }
+input.q-label { margin-bottom: 8px; }
+.q-body { margin-top: 8px; }
+.opts { gap: 6px; }
+.opt-row input { padding: 6px 4px; }
+.choice-body .btn-link, .q-body > .btn-link { padding: 4px 0 0; }
+
+/* calendar: narrower, flat cells */
+@media (min-width: 640px) {
+  .sched { grid-template-columns: 260px minmax(0, 1fr); gap: 18px; }
+}
+.cal-head { margin-bottom: 4px; font-size: .9rem; }
+.cal-nav { width: 26px; height: 26px; }
+.cal-grid { gap: 2px; }
+.cal-wd { padding: 0 0 2px; font-size: .72rem; }
+.cal-day { aspect-ratio: auto; height: 30px; font-size: .84rem; border-radius: 7px; }
+.date-list { gap: 6px; }
+.date-card { padding: 6px 8px 6px 12px; }
+
+.settings-chips { margin: 14px 0 4px; }
+.settings-chips .eyebrow { margin-bottom: 6px; }
+.add-chips { margin: 0 0 4px; }

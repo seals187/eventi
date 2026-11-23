@@ -267,8 +267,8 @@ function templateBar() {
 function settingsChips() {
   const s = state.settings;
   const chip = (label, value) => [h("span", { class: "muted" }, `${label}:`), " ", h("strong", {}, value), icon("right")];
-  const toggle = (label, prop) => h("button", {
-    type: "button", class: "set-chip", "aria-pressed": String(s[prop]),
+  const toggle = (label, prop, title) => h("button", {
+    type: "button", class: "set-chip", "aria-pressed": String(s[prop]), title,
     onclick: () => {
       s[prop] = !s[prop];
       render();
@@ -310,9 +310,8 @@ function settingsChips() {
     h("div", { class: "chip-row" },
       results,
       toggle(t("set.editable"), "allow_edit"),
-      toggle(t("set.account"), "require_login"),
-      closes),
-    h("small", { class: "hint" }, t(`set.hint_${s.require_login ? "account" : "open"}`)));
+      toggle(t("set.account"), "require_login", t(`set.hint_${s.require_login ? "account" : "open"}`)),
+      closes));
 }
 
 function addQuestion(type) {
@@ -356,6 +355,8 @@ function questionCard(q, i) {
       h("span", { class: "q-num" }, pad(i + 1)),
       h("span", { class: `badge badge-${q.type}` }, icon(TYPE_ICON[q.type]), t(`qtype.${q.type}`)),
       h("span", { class: "spacer" }),
+      // Question options as small toggles in the header row (saves a row per question)
+      h("span", { class: "q-toggles" }, chips),
       menu(icon("more"), t("action.more"), [
         { icon: "up", label: t("action.up"), disabled: i === 0, onClick: () => move(i, -1) },
         { icon: "down", label: t("action.down"), disabled: i === n - 1, onClick: () => move(i, 1) },
@@ -372,8 +373,7 @@ function questionCard(q, i) {
       placeholder: t(`create.qlabel_ph_${q.type}`), "aria-label": t("create.question"),
       oninput: (e) => (q.label = e.target.value),
     }),
-    body,
-    h("div", { class: "q-foot" }, chips));
+    body);
 }
 
 function bodyFor(q, rerender, body) {
