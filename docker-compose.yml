@@ -1,13 +1,17 @@
+# eventi – Docker Compose
+# Requires a .env file next to this file (see .env.example).
+
 services:
   eventi:
     image: ghcr.io/seals187/eventi:latest
     container_name: eventi
     restart: unless-stopped
     ports:
-      - "${EVENTI_BIND_IP:-127.0.0.1}:${EVENTI_PORT:-8090}:8090"
+      # host IP : host port : container port (container port stays 8090)
+      - "${EVENTI_BIND_IP:?EVENTI_BIND_IP is missing in .env}:${EVENTI_PORT:?EVENTI_PORT is missing in .env}:8090"
     env_file:
       - path: .env
-        required: false
+        required: true
     environment:
       TZ: ${TZ:-Europe/Zurich}
     volumes:

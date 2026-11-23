@@ -24,7 +24,7 @@ HTML/CSS/vanilla JS on top of [PocketBase](https://pocketbase.io) (SQLite), ship
 ## Quick start
 
 ```bash
-cp .env.example .env      # adjust as needed
+cp .env.example .env      # required – adjust as needed
 docker compose up -d
 ```
 
@@ -63,13 +63,14 @@ in the `Dockerfile`).
 
 ## Configuration (`.env`)
 
-All settings live in `.env` (template: `.env.example`). Apply changes with `docker compose up -d`.
+All settings live in `.env` (template: `.env.example`). The file is required: `docker compose` refuses to start
+without it or without `EVENTI_BIND_IP` / `EVENTI_PORT`. Apply changes with `docker compose up -d`.
 Values are applied on every start and override the corresponding settings in the dashboard.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `EVENTI_PORT` | `8090` | Port on the host |
-| `EVENTI_BIND_IP` | `127.0.0.1` | IP for direct HTTP access (`0.0.0.0` = whole network) |
+| `EVENTI_PORT` | `8090` | **Required.** Port on the host (the container always listens on 8090) |
+| `EVENTI_BIND_IP` | `127.0.0.1` | **Required.** IP for direct HTTP access (`0.0.0.0` = whole network) |
 | `TZ` | `Europe/Zurich` | Time zone of the container (also used for times in emails) |
 | `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` | – | Dashboard superuser and first eventi admin (password only set when the account is created) |
 | `EVENTI_APP_NAME` | `eventi` | Name in the dashboard and in emails |
