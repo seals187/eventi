@@ -3,10 +3,13 @@ const LANG_KEY = "eventi:lang";
 
 let lang = "de";
 let dict = {};
+let config = {};
 const listeners = [];
 
 export const currentLang = () => lang;
 export const has = (key) => key in dict;
+// Server config from /api/eventi/config (mail, signup, ...), loaded by initI18n()
+export const appConfig = () => config;
 
 export function t(key, vars) {
   let s = dict[key] ?? key;
@@ -40,7 +43,7 @@ export async function initI18n() {
   const browser = (navigator.languages || [navigator.language || "de"])
     .map((x) => x.slice(0, 2).toLowerCase())
     .find((x) => SUPPORTED.includes(x));
-  const config = await fetch("/api/eventi/config").then((r) => r.json()).catch(() => ({}));
+  config = await fetch("/api/eventi/config").then((r) => r.json()).catch(() => ({}));
   const sel = document.getElementById("lang");
   if (sel) sel.addEventListener("change", () => setLang(sel.value));
   await setLang(saved || browser || config.default_lang || "de");

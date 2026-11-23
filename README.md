@@ -1,13 +1,16 @@
 # eventi
 
-Leichtgewichtiges Umfrage- und Terminfindungs-Tool – ohne Anmeldung.
+Leichtgewichtiges Umfrage- und Terminfindungs-Tool mit Benutzerkonten.
 HTML/CSS/Vanilla-JS, PocketBase (SQLite) als Backend, ein einziger Container.
 
 - **Terminfindung** (Ja / Vielleicht / Nein pro Zeitslot), **Auswahlfragen** (einfach/mehrfach), **Freitext** – beliebig kombinierbar in einer Umfrage
-- Geheimer Verwaltungslink statt Accounts; Teilnehmende können ihre Antwort ändern (über einen Schlüssel im Browser)
+- **Konten**: Umfragen erstellen nur mit Login (Code per Mail oder Passwort); „Meine Umfragen“ auf jedem Gerät
+- **Teilnahme** wahlweise ohne Konto (Name + Schlüssel im Browser) oder pro Umfrage **nur mit Konto** (eindeutig, eine Stimme pro Person)
+- **Registrierung** per Einladung, Firmen-Domain, Freischaltung durch Admin oder offen – kombinierbar; Benutzerverwaltung für Admins
+- **Mails** über beliebigen SMTP-Server (intern, Gmail, …): Login-Codes, Einladungen, Zusammenfassung neuer Antworten, finaler Termin
+- Verwaltungslink bleibt zusätzlich gültig (z. B. zum Weitergeben an Mit-Verwaltende)
 - Live-Ergebnisse (PocketBase Realtime/SSE), finalen Termin festlegen + `.ics`-Download, CSV-Export
-- UI auf Deutsch, Englisch, Französisch (automatisch nach Browsersprache, umschaltbar)
-- Dark Mode, mobil optimiert, kein Build-Schritt
+- UI und Mails auf Deutsch, Englisch, Französisch; Dark Mode, mobil optimiert, kein Build-Schritt
 
 ## Start
 
@@ -47,6 +50,41 @@ entsprechende Änderungen im Dashboard.
 | `EVENTI_RATE_LIMIT_API` | `120` | API-Aufrufe pro Minute |
 | `EVENTI_TRUSTED_PROXY_HEADER` | – | Hinter Reverse Proxy: IP-Header, z. B. `X-Forwarded-For` (sonst gilt das Rate-Limit pro Proxy statt pro Nutzer) |
 
+## Konten & Mail
+
+Erster Admin ist `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` (wird beim ersten Start angelegt). Weitere Personen
+lädt er unter **Konto-Menü → Benutzer** ein, oder sie registrieren sich je nach `EVENTI_SIGNUP` selbst.
+
+| Variable | Standard | Bedeutung |
+|---|---|---|
+| `EVENTI_APP_URL` | `http://localhost:8090` | Öffentliche Adresse – für Links in Mails |
+| `EVENTI_SIGNUP` | `invite` | `invite`, `domain`, `approval`, `open` (kombinierbar, z. B. `domain,approval`) |
+| `EVENTI_SIGNUP_DOMAINS` | – | Domains für Selbstregistrierung ohne Freischaltung, z. B. `firma.ch` (braucht Mail) |
+| `EVENTI_SESSION_DAYS` | `30` | Gültigkeit eines Logins (verlängert sich bei jedem Besuch) |
+| `EVENTI_SMTP_HOST` / `_PORT` | – / `587` | Mailserver; leer = kein Mailversand, nur Passwort-Login |
+| `EVENTI_SMTP_USER` / `_PASSWORD` | – | Zugangsdaten (bei internem Relay leer lassen) |
+| `EVENTI_SMTP_TLS` | `true` bei Port 465 | sonst STARTTLS |
+| `EVENTI_MAIL_FROM` / `_FROM_NAME` | SMTP-User / `eventi` | Absender |
+| `EVENTI_DIGEST_MINUTES` | `15` | Neue Antworten werden dem Besitzer höchstens so oft gesammelt gemeldet |
+| `EVENTI_RATE_LIMIT_AUTH` | `20` | Login-/Registrierungs-/Code-Anfragen pro Minute und IP |
+
+**Gmail:** `EVENTI_SMTP_HOST=smtp.gmail.com`, Port `587`, `EVENTI_SMTP_USER` = Gmail-Adresse,
+`EVENTI_SMTP_PASSWORD` = [App-Passwort](https://myaccount.google.com/apppasswords) (setzt 2-Faktor-Anmeldung voraus).
+Gmail versendet nur mit der eigenen Adresse bzw. einem bestätigten Alias als Absender.
+
+Ohne Mailserver funktioniert alles mit Passwörtern: Admins legen Konten mit Startpasswort an; Code-Login,
+Selbstregistrierung per Domain, Passwort-Reset und Benachrichtigungen entfallen.
+
+## Tests
+
+```bash
+bash tests/docker-test.sh
+```
+
+Baut ein Test-Image, startet es isoliert mit [Mailpit](https://mailpit.axllent.org/) als Test-Mailserver (es verlässt
+keine Mail den Rechner) und führt `tests/smoke.sh` (API, Rechte) und `tests/mail.sh` (Registrierung, Code-Login,
+Einladung, Benachrichtigungen) aus. Die eigene `.env` und der laufende Container bleiben unberührt.
+
 ## HTTPS (intern, eigenes Zertifikat)
 
 Optionaler Caddy-Container vor eventi, nur aus internen Netzen erreichbar.
@@ -69,22 +107,35 @@ Zertifikat erneuern: neue Dateien nach `./certs/`, dann `docker compose restart 
 ## Aufbau
 
 ```
-pb_migrations/   Schema (surveys, responses) – alle Collection-Rules gesperrt
-pb_hooks/        API unter /api/eventi/* inkl. Validierung (main.pb.js, lib.js)
-pb_public/       Frontend: index.html (erstellen), s.html (abstimmen), a.html (verwalten)
+pb_migrations/   Schema (surveys, responses, users-Erweiterung) – Collection-Rules gesperrt
+pb_hooks/        main.pb.js   Umfrage-API /api/eventi/*        lib.js     Validierung, Rechte
+                 auth.pb.js   Registrierung, Login-Regeln, Benutzer-API, Systemmails
+                 notify.*     Benachrichtigungen (Cron)        mail.js    Mailtexte de/en/fr
+                 settings.pb.js / accounts.js   .env → PocketBase-Einstellungen, Admin-Konto
+pb_public/       index.html (erstellen), s.html (abstimmen), a.html (verwalten),
+                 login.html, account.html, users.html
   js/            ES-Module ohne Build; i18n/*.json für Übersetzungen
+tests/           docker-test.sh, smoke.sh, mail.sh
 ```
 
 ### API
 
-| Methode | Pfad | Auth-Header |
+Auth: `Authorization: <token>` (Login über PocketBase: `/api/collections/users/auth-with-password`,
+`request-otp` + `auth-with-otp`), zusätzlich die geheimen Schlüssel aus den Links.
+
+| Methode | Pfad | Berechtigung |
 |---|---|---|
-| `POST` | `/api/eventi/surveys` | – → liefert `id` + `admin_key` |
-| `GET` | `/api/eventi/surveys/{id}` | optional `X-Admin-Key` bzw. `X-Response-Id` + `X-Edit-Key` |
-| `PATCH`/`DELETE` | `/api/eventi/surveys/{id}` | `X-Admin-Key` |
-| `POST` | `/api/eventi/surveys/{id}/responses` | – → liefert `id` + `edit_key` |
-| `PATCH` | `/api/eventi/responses/{id}` | `X-Edit-Key` |
-| `DELETE` | `/api/eventi/responses/{id}` | `X-Edit-Key` oder `X-Admin-Key` |
+| `GET` | `/api/eventi/config` | – (Sprache, Mail an/aus, Registrierungsmodus) |
+| `POST` | `/api/eventi/surveys` | Login → liefert `id` + `admin_key` |
+| `GET` | `/api/eventi/surveys/{id}` | optional Login, `X-Admin-Key` bzw. `X-Response-Id` + `X-Edit-Key` |
+| `PATCH`/`DELETE` | `/api/eventi/surveys/{id}` | Besitzer oder `X-Admin-Key` |
+| `POST` | `/api/eventi/surveys/{id}/responses` | – bzw. Login bei `require_login` → liefert `id` + `edit_key` |
+| `PATCH` | `/api/eventi/responses/{id}` | `X-Edit-Key` oder eigenes Konto |
+| `DELETE` | `/api/eventi/responses/{id}` | `X-Edit-Key`, eigenes Konto, Besitzer oder `X-Admin-Key` |
+| `GET`/`PATCH` | `/api/eventi/me` | Login (Name, Sprache, `mail_opt_out`) |
+| `GET` | `/api/eventi/me/surveys` | Login |
+| `GET`/`POST` | `/api/eventi/users` | Admin (Liste, Einladen) |
+| `PATCH`/`DELETE` | `/api/eventi/users/{id}` | Admin (Freischalten, Sperren, Rolle, Passwort, Löschen inkl. Umfragen) |
 
 Realtime: `/api/realtime` abonnieren mit Topic `eventi:<surveyId>` → Event `{"t":"changed"}`.
 

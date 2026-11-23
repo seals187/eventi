@@ -1,4 +1,4 @@
-import { h, download, slug, publicUrl } from "./util.js";
+import { h, download, slug, publicUrl, icon } from "./util.js";
 import { t, fmtDate, fmtSlot, slotParts, parseSlot } from "./i18n.js";
 
 export const ICON = { yes: "✓", maybe: "?", no: "✕" };
@@ -114,7 +114,8 @@ function participants(responses, opts) {
     h("h3", {}, t("admin.participants", { n: responses.length })),
     h("ul", { class: "plist" }, responses.map((r) =>
       h("li", {},
-        h("span", { class: "plist-name" }, r.name),
+        h("span", { class: "plist-name" }, r.name,
+          r.account && h("span", { class: "acct-badge", title: t("results.account"), "aria-label": t("results.account") }, icon("user"))),
         h("span", { class: "muted small" }, fmtDate(new Date(r.created), { dateStyle: "short", timeStyle: "short" })),
         h("button", {
           type: "button",

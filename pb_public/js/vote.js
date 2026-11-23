@@ -1,8 +1,8 @@
 import { h, store, params, field, toast, errorCard } from "./util.js";
 import { t, initI18n, onLangChange, fmtDate } from "./i18n.js";
-import { api, errMsg, subscribe } from "./api.js";
+import { api, errMsg, subscribe, currentUser } from "./api.js";
 import { renderResults, finalBanner, slotLabel, ICON } from "./results.js";
-import { initHeader } from "./header.js";
+import { initHeader, loginUrl } from "./header.js";
 
 const app = document.getElementById("app");
 const id = params.get("id");
@@ -23,12 +23,15 @@ async function load() {
     store.del(MINE_KEY);
     mine = null;
   }
+  // Response given with the account (e.g. on another device): edit via login, no key needed
+  if (!mine && data.mine) mine = { id: data.mine.id, key: "" };
 }
 
 function initDraft() {
   draft = data.mine
     ? { name: data.mine.name, answers: structuredClone(data.mine.answers) }
-    : { name: store.get(NAME_KEY) || "", answers: {} };
+    : { name: store.get(NAME_KEY) || currentUser()?.display_name || "", answers: {} };
+  if (data.survey.settings.require_login && currentUser()) draft.name = currentUser().display_name;
   for (const q of data.survey.questions) {
     if (q.type === "schedule" && !draft.answers[q.id]) draft.answers[q.id] = {};
   }
@@ -84,6 +87,12 @@ function renderForm() {
     el.append(h("section", { class: "card" }, h("p", { class: "muted" }, t("vote.closed_info"))));
     return;
   }
+  if (s.settings.require_login && !currentUser()) {
+    el.append(h("section", { class: "card login-needed" },
+      h("p", {}, t("vote.login_required")),
+      h("a", { class: "btn btn-primary", href: loginUrl() }, t("auth.login"))));
+    return;
+  }
 
   if (!draft) initDraft();
   const err = h("p", { class: "error", role: "alert" });
@@ -95,7 +104,9 @@ function renderForm() {
     },
   });
   form.append(h("section", { class: "card" },
-    field(t("vote.name"), h("input", {
+    s.settings.require_login
+      ? h("p", { class: "as-account" }, t("vote.as_account", { name: draft.name }))
+      : field(t("vote.name"), h("input", {
       type: "text", maxlength: 60, value: draft.name, autocomplete: "name", placeholder: t("vote.name_ph"),
       oninput: (e) => {
         draft.name = e.target.value;
@@ -200,7 +211,7 @@ async function submit(form, err) {
       mine = { id: r.id, key: r.edit_key };
       store.set(MINE_KEY, mine);
     }
-    store.set(NAME_KEY, name);
+    if (!data.survey.settings.require_login) store.set(NAME_KEY, name);
     editing = false;
     dirty = false;
     draft = null;
@@ -218,7 +229,7 @@ async function submit(form, err) {
 async function deleteMine() {
   if (!confirm(t("vote.delete_confirm"))) return;
   try {
-    await api.deleteVote(mine.id, { "X-Edit-Key": mine.key });
+    await api.deleteVote(mine.id, mine.key ? { "X-Edit-Key": mine.key } : {});
     store.del(MINE_KEY);
     mine = null;
     draft = null;
@@ -256,7 +267,7 @@ async function refresh() {
 
 async function main() {
   await initI18n();
-  initHeader();
+  await initHeader();
   if (!id) {
     app.replaceChildren(errorCard(t("err.not_found")));
     return;

@@ -41,7 +41,8 @@ export const publicUrl = (id) => new URL(`s.html?id=${id}`, location.href).href;
 export const adminUrl = (id, key) => new URL(`a.html?id=${id}#k=${key}`, location.href).href;
 export const editUrl = (id, key) => new URL(`./?edit=${id}#k=${key}`, location.href).href;
 
-// Surveys created in this browser, so the owner finds their admin links again.
+// Admin links opened in this browser. Own surveys come from the account
+// (/api/eventi/me/surveys); this list keeps links shared by others.
 const MINE = "eventi:mine";
 export const mySurveys = () => store.get(MINE) || [];
 export function saveMySurvey(entry) {
@@ -108,6 +109,13 @@ const ICONS = {
   up: '<path d="m18 15-6-6-6 6"/>',
   down: '<path d="m6 9 6 6 6-6"/>',
   trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2 20c1.2-3.4 3.7-5 7-5s5.8 1.6 7 5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 15c1.6.8 2.8 2.4 3.5 5"/>',
+  logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  shield: '<path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/>',
 };
 
 export function icon(name) {

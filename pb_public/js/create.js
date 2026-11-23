@@ -1,11 +1,11 @@
-import { h, uid, params, hashParams, publicUrl, adminUrl, saveMySurvey, iconBtn, linkBox, errorCard, icon, toggleChip, menu, autoTextarea } from "./util.js";
+import { h, uid, params, hashParams, publicUrl, adminUrl, iconBtn, linkBox, errorCard, icon, toggleChip, menu, autoTextarea } from "./util.js";
 import { t, tn, initI18n, onLangChange, fmtDate, parseSlot } from "./i18n.js";
-import { api, errMsg } from "./api.js";
-import { initHeader, renderMineMenu } from "./header.js";
+import { api, errMsg, currentUser } from "./api.js";
+import { initHeader, renderMineMenu, loginUrl } from "./header.js";
 
 const app = document.getElementById("app");
 const editId = params.get("edit");
-const editKey = hashParams.get("k");
+let editKey = hashParams.get("k") || "";
 
 const TYPE_ICON = { schedule: "calendar", choice: "list", text: "text" };
 
@@ -29,7 +29,7 @@ function blank() {
     title: "",
     description: "",
     questions: [newQuestion("schedule")],
-    settings: { results: "always", allow_edit: true },
+    settings: { results: "always", allow_edit: true, require_login: false },
     closes_at: "",
   };
 }
@@ -386,6 +386,12 @@ function settingsCard() {
         type: "checkbox", role: "switch", class: "switch", checked: state.settings.allow_edit,
         onchange: (e) => (state.settings.allow_edit = e.target.checked),
       })),
+    h("label", { class: "set-row" },
+      h("span", {}, t("settings.require_login"), h("small", { class: "hint" }, t("settings.require_login_hint"))),
+      h("input", {
+        type: "checkbox", role: "switch", class: "switch", checked: state.settings.require_login,
+        onchange: (e) => (state.settings.require_login = e.target.checked),
+      })),
     closeRow());
 }
 
@@ -450,13 +456,11 @@ async function submit(btn, summary) {
   try {
     if (editId) {
       await api.updateSurvey(editId, editKey, p);
-      saveMySurvey({ id: editId, key: editKey, title: p.title });
       location.href = adminUrl(editId, editKey);
       return;
     }
     created = await api.createSurvey(p);
-    saveMySurvey({ id: created.id, key: created.admin_key, title: p.title });
-    renderMineMenu();
+    renderMineMenu(true);
     render();
     window.scrollTo(0, 0);
   } catch (e) {
@@ -469,11 +473,17 @@ async function submit(btn, summary) {
 
 async function main() {
   await initI18n();
-  initHeader();
+  await initHeader();
+  // Creating requires an account; editing works with the admin link as well
+  if (!editId && !currentUser()) {
+    location.replace(loginUrl());
+    return;
+  }
   if (editId) {
     try {
-      const d = await api.getSurvey(editId, { "X-Admin-Key": editKey || "" });
+      const d = await api.getSurvey(editId, editKey ? { "X-Admin-Key": editKey } : {});
       if (!d.admin) throw Object.assign(new Error("err.forbidden"), { status: 403 });
+      editKey = d.admin_key || editKey;
       state = fromSurvey(d.survey);
       existingCount = d.count;
     } catch (e) {

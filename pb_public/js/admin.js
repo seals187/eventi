@@ -6,15 +6,19 @@ import { initHeader, renderMineMenu } from "./header.js";
 
 const app = document.getElementById("app");
 const id = params.get("id");
-const key = hashParams.get("k") || "";
+let key = hashParams.get("k") || "";
 
 let data = null;
 
 async function load() {
-  data = await api.getSurvey(id, { "X-Admin-Key": key });
+  data = await api.getSurvey(id, key ? { "X-Admin-Key": key } : {});
   if (!data.admin) throw Object.assign(new Error("err.forbidden"), { status: 403 });
-  saveMySurvey({ id, key, title: data.survey.title });
-  renderMineMenu();
+  key = data.admin_key || key;
+  // Own surveys are listed via the account; remember links shared by others in this browser
+  if (!data.owner) {
+    saveMySurvey({ id, key, title: data.survey.title });
+    renderMineMenu();
+  }
 }
 
 function render() {
@@ -123,7 +127,7 @@ function exportCsv() {
 
 async function main() {
   await initI18n();
-  initHeader();
+  await initHeader();
   if (!id) {
     app.replaceChildren(errorCard(t("err.not_found")));
     return;

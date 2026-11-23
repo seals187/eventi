@@ -56,6 +56,7 @@ routerAdd("GET", "/api/eventi/surveys/{id}", (e) => {
   return e.json(200, {
     survey: survey,
     admin: admin,
+    owner: lib.isOwner(e, rec),
     admin_key: admin ? rec.getString("admin_key") : undefined,
     can_see_results: canSee,
     count: responses.length,
