@@ -4,9 +4,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.2] – 2026-11-23
 
 ### Changed
+- Sign-in with password is now the default; “use an email code instead” stays one click away.
+  Invitation emails link to `login.html?mode=code`, because invited people have no password yet
 - Start page redesign: “Start from a template” box with template pills and “duplicate last poll”,
   “or add a question directly” (find a date / vote / free text); after choosing, a template bar
   (change / remove), question cards with coloured type badges and compact “+ Question” chips
@@ -49,4 +51,5 @@ First public release.
 - Test suite `tests/docker-test.sh`: isolated container with Mailpit, API and email flow tests;
   the test container keeps running for manual testing
 
+[0.0.2]: https://github.com/seals187/eventi/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/seals187/eventi/releases/tag/v0.0.1

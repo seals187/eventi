@@ -156,7 +156,7 @@ routerAdd("POST", "/api/eventi/users", (e) => {
   $app.save(u);
 
   const mailed = mail.send([mail.recipient(u)], "invite", {
-    inviter: lib.displayName(admin), email: email, link: mail.url("login.html?email=" + encodeURIComponent(email)),
+    inviter: lib.displayName(admin), email: email, link: mail.url("login.html?mode=code&email=" + encodeURIComponent(email)),
   });
   const dto = lib.userDTO(u);
   dto.surveys = 0;

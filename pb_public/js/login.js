@@ -18,7 +18,8 @@ function nextUrl() {
 let view = "login";     // login | code | signup | forgot | reset | info
 let email = params.get("email") || "";
 let otpId = "";
-let usePassword = false;
+// Password login is the default; "?mode=code" (invitation mails) starts with a one-time code by email
+let usePassword = params.get("mode") !== "code";
 let info = null;        // { text, kind } shown above the form
 const resetToken = hashParams.get("reset");
 
@@ -74,7 +75,7 @@ function loginView() {
   const emailIn = input({ type: "email", name: "email", value: email, autocomplete: "username", required: true, oninput: (e) => (email = e.target.value.trim()) });
   const pwIn = pw && input({ type: "password", name: "password", autocomplete: "current-password", required: true });
 
-  return card(t("auth.login_title"), t(mail ? "auth.login_lead_mail" : "auth.login_lead"),
+  return card(t("auth.login_title"), t(pw ? "auth.login_lead" : "auth.login_lead_mail"),
     form([
       field(t("auth.email"), emailIn),
       pwIn && field(t("auth.password"), pwIn),
