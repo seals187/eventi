@@ -336,7 +336,7 @@
   "tpl.dinner": "Repas d’équipe",
   "tpl.dinner_desc": "Date + restaurant",
   "tpl.dinner_q1": "Quand êtes-vous disponibles ?",
-  "tpl.dinner_q2": "Quel restaurant ?",
+  "tpl.dinner_q2": "Où allons-nous ?",
   "tpl.meeting": "Réunion",
   "tpl.meeting_desc": "Dates avec horaires",
   "tpl.meeting_q1": "Quand tout le monde est-il disponible ?",
@@ -370,5 +370,16 @@
   "set.closes": "Clôture",
   "set.hint_open": "Compte : Non – toute personne disposant du lien peut voter sans se connecter.",
   "set.hint_account": "Compte : Oui – seules les personnes connectées ou invitées personnellement votent, une fois chacune.",
-  "err.comment_too_long": "Le commentaire est trop long."
+  "err.comment_too_long": "Le commentaire est trop long.",
+
+  "start.templates": "Partir d’un modèle",
+  "start.duplicate": "Dupliquer {title}",
+  "start.direct": "Ou ajoutez directement une question",
+  "start.add_schedule": "Trouver une date",
+  "start.add_choice": "Voter",
+  "start.add_text": "Texte libre",
+  "start.template": "modèle",
+  "start.change": "Modifier",
+  "start.remove_template": "Retirer le modèle",
+  "create.add_question": "+ Question :"
 }

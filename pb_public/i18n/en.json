@@ -336,7 +336,7 @@
   "tpl.dinner": "Team dinner",
   "tpl.dinner_desc": "Pick a date + restaurant",
   "tpl.dinner_q1": "When suits you?",
-  "tpl.dinner_q2": "Which restaurant?",
+  "tpl.dinner_q2": "Where shall we go?",
   "tpl.meeting": "Meeting",
   "tpl.meeting_desc": "Dates with times",
   "tpl.meeting_q1": "When can everyone make it?",
@@ -370,5 +370,16 @@
   "set.closes": "Closes",
   "set.hint_open": "Account: No – anyone with the link can vote without signing in.",
   "set.hint_account": "Account: Yes – only signed-in or personally invited people can vote, once each.",
-  "err.comment_too_long": "The comment is too long."
+  "err.comment_too_long": "The comment is too long.",
+
+  "start.templates": "Start from a template",
+  "start.duplicate": "Duplicate {title}",
+  "start.direct": "Or add a question directly",
+  "start.add_schedule": "Find a date",
+  "start.add_choice": "Vote",
+  "start.add_text": "Free text",
+  "start.template": "template",
+  "start.change": "Change",
+  "start.remove_template": "Remove template",
+  "create.add_question": "+ Question:"
 }

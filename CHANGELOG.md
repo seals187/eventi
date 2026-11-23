@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Start page redesign: “Start from a template” box with template pills and “duplicate last poll”,
+  “or add a question directly” (find a date / vote / free text); after choosing, a template bar
+  (change / remove), question cards with coloured type badges and compact “+ Question” chips
+- Date list next to the calendar shows one row per day (date, times, “+ time”)
+- “Create poll” is disabled until the poll has a question
+
+### Added
+- Deep link to a template: `/?tpl=dinner` (also `meeting`, `birthday`, `trip`, `feedback`)
+
 ## [0.0.1] – 2026-11-23
 
 First public release.

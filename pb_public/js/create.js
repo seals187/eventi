@@ -31,7 +31,6 @@ const TEMPLATES = [
   { key: "birthday", icon: "cake", tags: ["schedule", "text"], build: () => [newQuestion("schedule", t("tpl.birthday_q1")), newQuestion("text", t("tpl.birthday_q2"))] },
   { key: "trip", icon: "map", tags: ["schedule", "choice"], build: () => [newQuestion("schedule", t("tpl.trip_q1")), newQuestion("choice", t("tpl.trip_q2"))] },
   { key: "feedback", icon: "chat", tags: ["text"], build: () => [newQuestion("text", t("tpl.feedback_q1")), newQuestion("text", t("tpl.feedback_q2"))] },
-  { key: "blank", icon: "plus", tags: [], build: () => [] },
 ];
 
 // Has the user already typed something into the questions?
@@ -39,13 +38,24 @@ const questionsTouched = () => state.questions.some((q) =>
   (q.type === "choice" && q.options.some((o) => o.trim())) || (q.type === "schedule" && Object.keys(q.dates).length));
 
 function applyTemplate(tpl) {
-  if (state.template === tpl.key) return;
+  if (state.template === tpl.key && !state.pickTemplate) return;
   if (questionsTouched() && !confirm(t("tpl.replace_confirm"))) return;
   state.template = tpl.key;
+  state.copyOf = null;
+  state.pickTemplate = false;
   state.questions = tpl.build();
   render();
-  const first = app.querySelector(".q-card");
-  (first || app.querySelector(".add-grid"))?.scrollIntoView({ behavior: "smooth", block: "center" });
+  app.querySelector(".q-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+// "×" on the template bar: back to the start screen
+function clearTemplate() {
+  if (questionsTouched() && !confirm(t("tpl.replace_confirm"))) return;
+  state.template = null;
+  state.copyOf = null;
+  state.pickTemplate = false;
+  state.questions = [];
+  render();
 }
 
 // Copy questions and settings of an own survey into the editor
@@ -53,7 +63,7 @@ async function duplicate(s) {
   try {
     const d = await api.getSurvey(s.id, { "X-Admin-Key": s.key });
     const copy = fromSurvey(d.survey);
-    state = { ...copy, title: copy.title, closes_at: "", template: "copy", showDesc: !!copy.description };
+    state = { ...copy, title: copy.title, closes_at: "", template: "copy", copyOf: copy.title, pickTemplate: false, showDesc: !!copy.description };
     render();
     toast(t("tpl.duplicated"));
   } catch (e) {
@@ -144,8 +154,8 @@ function render() {
   if (created) return renderSuccess();
 
   const showDesc = state.showDesc || !!state.description;
-  app.append(h("section", { class: "card compose-card" },
-    h("p", { class: "eyebrow accent" }, t(editId ? "create.eyebrow_edit" : "create.eyebrow_new")),
+  app.append(h("section", { class: "compose-head" },
+    editId && h("p", { class: "eyebrow accent" }, t("create.eyebrow_edit")),
     h("input", {
       type: "text", class: "title-input", maxlength: 200, value: state.title,
       placeholder: t("create.title_ph"), "aria-label": t("create.survey_title"),
@@ -167,24 +177,29 @@ function render() {
       }, `+ ${t("create.add_description")}`)));
   if (existingCount) app.append(h("p", { class: "notice" }, t("create.edit_warning", { n: existingCount })));
 
-  if (!editId) app.append(templatesSection());
+  // Start screen (no questions yet): templates + "add a question directly".
+  // Afterwards: template bar, question cards and the small "+ Frage:" chips.
+  const start = !editId && !state.questions.length;
+  if (start || state.pickTemplate) app.append(templateBox());
+  else if (state.template) app.append(templateBar());
 
-  app.append(h("div", { id: "questions" }));
-  renderQuestions();
-
-  // The "+ Termin / + Auswahl / + Freitext" boxes appear once a start was chosen
-  if (editId || state.template || state.questions.length) {
-    app.append(h("div", { class: "add-grid" }, ["schedule", "choice", "text"].map((type) =>
-      h("button", {
-        type: "button", class: "add-btn", disabled: state.questions.length >= 20,
+  if (start) {
+    app.append(directAddBox());
+  } else {
+    app.append(h("div", { id: "questions" }));
+    renderQuestions();
+    app.append(h("div", { class: "add-chips" },
+      h("span", { class: "muted" }, t("create.add_question")),
+      ["schedule", "choice", "text"].map((type) => h("button", {
+        type: "button", class: `tag tag-${type} tag-btn`, disabled: state.questions.length >= 20,
         onclick: () => addQuestion(type),
-      }, icon(TYPE_ICON[type]), `+ ${t(`qtype.${type}`)}`))));
+      }, t(`qtype.${type}`)))));
   }
 
   app.append(settingsChips());
 
   const summary = h("p", { class: "bar-summary", id: "summary", role: "status" });
-  const btn = h("button", { type: "button", class: "btn btn-primary btn-lg", onclick: () => submit(btn, summary) },
+  const btn = h("button", { type: "button", class: "btn btn-primary btn-lg", disabled: !state.questions.length, onclick: () => submit(btn, summary) },
     t(editId ? "create.save" : "create.submit"), icon("arrow"));
   app.append(h("div", { class: "submit-bar" }, summary, btn));
   updateSummary();
@@ -197,32 +212,55 @@ function updateSummary() {
   const parts = [tn("summary.questions", state.questions.length)];
   const schedules = state.questions.filter((q) => q.type === "schedule");
   if (schedules.length) parts.push(tn("summary.slots", schedules.reduce((n, q) => n + slotsOf(q).length, 0)));
-  if (state.template && state.template !== "blank") parts.push(t(`tpl.${state.template}`));
+  if (state.template === "copy") parts.push(t("tpl.copy"));
+  else if (state.template) parts.push(t(`tpl.${state.template}`));
   el.textContent = parts.join(" · ");
 }
 
-function templatesSection() {
-  const own = ownSurveys();
-  const last = own[0];
-  return h("section", { class: "templates" },
-    h("div", { class: "section-head" }, h("h2", {}, t("tpl.title")), h("span", { class: "muted small" }, t("tpl.optional"))),
-    h("div", { class: "tpl-grid" }, TEMPLATES.map((tpl) => {
-      const sel = state.template === tpl.key;
-      return h("button", {
-        type: "button", class: `tpl-card${sel ? " sel" : ""}${tpl.key === "blank" ? " tpl-blank" : ""}`, "aria-pressed": String(sel),
-        onclick: () => applyTemplate(tpl),
+// Dashed purple box: "✦ Mit Vorlage starten · optional" with template pills and "… duplizieren"
+function templateBox() {
+  const last = ownSurveys()[0];
+  return h("section", { class: "tpl-box" },
+    h("div", { class: "tpl-box-head" },
+      h("span", {}, h("strong", { class: "tpl-box-title" }, "✦ ", t("start.templates")), h("span", { class: "muted" }, ` · ${t("tpl.optional")}`)),
+      last && !editId && h("button", { type: "button", class: "btn-link muted-link small", onclick: () => duplicate(last) },
+        icon("history"), t("start.duplicate", { title: last.title }))),
+    h("div", { class: "tpl-pills" }, TEMPLATES.map((tpl) => h("button", {
+      type: "button", class: "tpl-pill", "aria-pressed": String(state.template === tpl.key),
+      title: t(`tpl.${tpl.key}_desc`), onclick: () => applyTemplate(tpl),
+    }, icon(tpl.icon), t(`tpl.${tpl.key}`)))),
+    state.pickTemplate && h("button", {
+      type: "button", class: "btn-link small", onclick: () => {
+        state.pickTemplate = false;
+        render();
       },
-      h("span", { class: "tpl-icon" }, icon(tpl.icon)),
-      sel && h("span", { class: "tpl-check" }, icon("check")),
-      h("strong", {}, t(`tpl.${tpl.key}`)),
-      h("small", {}, t(`tpl.${tpl.key}_desc`)),
-      tpl.tags.length > 0 && h("span", { class: "tpl-tags" }, tpl.tags.map((tag) => h("span", { class: `tag tag-${tag}` }, t(`qtype.${tag}`)))));
-    })),
-    last && h("div", { class: "recent-row" },
-      h("span", { class: "tpl-icon tpl-icon-sm" }, icon("history")),
-      h("span", { class: "recent-text" }, h("strong", {}, last.title),
-        h("span", { class: "muted" }, ` · ${t("tpl.last_created", { date: fmtDate(new Date(last.created), { day: "numeric", month: "numeric" }) })}`)),
-      h("button", { type: "button", class: "btn-link", onclick: () => duplicate(last) }, t("tpl.duplicate"))));
+    }, t("action.cancel")));
+}
+
+// Dashed box on the start screen: "Oder direkt eine Frage hinzufügen"
+function directAddBox() {
+  return h("section", { class: "direct-box" },
+    h("p", {}, t("start.direct")),
+    h("div", { class: "direct-btns" }, ["schedule", "choice", "text"].map((type) => h("button", {
+      type: "button", class: `direct-btn direct-${type}`, onclick: () => addQuestion(type),
+    }, icon(TYPE_ICON[type]), t(`start.add_${type}`)))));
+}
+
+// "🍴 Teamessen · Vorlage   Ändern ×" above the questions
+function templateBar() {
+  const tpl = TEMPLATES.find((x) => x.key === state.template);
+  return h("section", { class: "tpl-bar" },
+    icon(tpl ? tpl.icon : "history"),
+    h("strong", {}, tpl ? t(`tpl.${tpl.key}`) : state.copyOf || t("tpl.copy")),
+    h("span", { class: "muted small" }, ` · ${t(tpl ? "start.template" : "tpl.copy")}`),
+    h("span", { class: "spacer" }),
+    h("button", {
+      type: "button", class: "btn-link", onclick: () => {
+        state.pickTemplate = true;
+        render();
+      },
+    }, t("start.change")),
+    iconBtn(icon("x"), t("start.remove_template"), false, clearTemplate));
 }
 
 // Settings as compact chips: "Results: Everyone ›", "Editable: Yes ›", "Account: No ›", "Closes: Never ›"
@@ -383,7 +421,7 @@ function scheduleBody(q, rerender) {
     h("div", { class: "sched" },
       calendar(q, rerender),
       h("div", { class: "date-list" },
-        h("p", { class: "date-count" }, dates.length ? tn("create.days_selected", dates.length) : t("create.pick_dates")),
+        !dates.length && h("p", { class: "date-count" }, t("create.pick_dates")),
         dates.map((d) => dateCard(q, d, rerender)),
         dates.length > 1 && firstTimes.length > 0 && h("button", {
           type: "button", class: "btn-link small",
@@ -472,25 +510,19 @@ function dateCard(q, d, rerender) {
   }
   showButton();
 
+  // One row: "Fr, 4. Dez   [18:00 ×]   + Uhrzeit" (no time = all day; deselect the day in the calendar)
   return h("div", { class: "date-card" },
-    h("div", { class: "date-card-head" },
-      h("strong", {}, fmtDate(parseSlot(d).date, { weekday: "short", day: "numeric", month: "short" })),
-      iconBtn(icon("x"), t("action.remove"), false, () => {
-        delete q.dates[d];
-        rerender();
-      })),
+    h("strong", { class: "date-card-day" }, fmtDate(parseSlot(d).date, { weekday: "short", day: "numeric", month: "short" })),
     h("div", { class: "chips" },
-      times.length
-        ? times.map((tm) => h("span", { class: "chip chip-time" }, tm,
-          h("button", {
-            type: "button", class: "chip-x", "aria-label": `${t("action.remove")} ${tm}`,
-            onclick: () => {
-              times.splice(times.indexOf(tm), 1);
-              rerender();
-            },
-          }, icon("x"))))
-        : h("span", { class: "chip chip-time" }, t("create.allday_chip")),
-      adder));
+      times.map((tm) => h("span", { class: "chip chip-time" }, tm,
+        h("button", {
+          type: "button", class: "chip-x", "aria-label": `${t("action.remove")} ${tm}`,
+          onclick: () => {
+            times.splice(times.indexOf(tm), 1);
+            rerender();
+          },
+        }, icon("x"))))),
+    adder);
 }
 
 
@@ -563,6 +595,12 @@ async function main() {
     }
   } else {
     state = blank();
+    // Deep link to a template: ./?tpl=dinner
+    const tpl = TEMPLATES.find((x) => x.key === params.get("tpl"));
+    if (tpl) {
+      state.template = tpl.key;
+      state.questions = tpl.build();
+    }
   }
   onLangChange(render);
   render();

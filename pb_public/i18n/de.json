@@ -336,7 +336,7 @@
   "tpl.dinner": "Teamessen",
   "tpl.dinner_desc": "Datum + Restaurant wählen",
   "tpl.dinner_q1": "Wann passt es euch?",
-  "tpl.dinner_q2": "Welches Restaurant?",
+  "tpl.dinner_q2": "Wohin gehen wir?",
   "tpl.meeting": "Meeting",
   "tpl.meeting_desc": "Termin mit Uhrzeiten",
   "tpl.meeting_q1": "Wann können alle?",
@@ -370,5 +370,16 @@
   "set.closes": "Schließt",
   "set.hint_open": "Konto: Nein – jede Person mit dem Link kann ohne Anmeldung abstimmen.",
   "set.hint_account": "Konto: Ja – nur angemeldete oder persönlich eingeladene Personen stimmen ab, je einmal.",
-  "err.comment_too_long": "Der Kommentar ist zu lang."
+  "err.comment_too_long": "Der Kommentar ist zu lang.",
+
+  "start.templates": "Mit Vorlage starten",
+  "start.duplicate": "{title} duplizieren",
+  "start.direct": "Oder direkt eine Frage hinzufügen",
+  "start.add_schedule": "Termin finden",
+  "start.add_choice": "Abstimmen",
+  "start.add_text": "Freitext",
+  "start.template": "Vorlage",
+  "start.change": "Ändern",
+  "start.remove_template": "Vorlage entfernen",
+  "create.add_question": "+ Frage:"
 }
