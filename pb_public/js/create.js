@@ -28,7 +28,7 @@ function blank() {
   return {
     title: "",
     description: "",
-    questions: [newQuestion("schedule")],
+    questions: [],
     settings: { results: "always", allow_edit: true, require_login: false },
     closes_at: "",
   };
