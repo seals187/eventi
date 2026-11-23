@@ -6,6 +6,7 @@ HTML/CSS/Vanilla-JS, PocketBase (SQLite) als Backend, ein einziger Container.
 - **Terminfindung** (Ja / Vielleicht / Nein pro Zeitslot), **Auswahlfragen** (einfach/mehrfach), **Freitext** – beliebig kombinierbar in einer Umfrage
 - **Konten**: Umfragen erstellen nur mit Login (Code per Mail oder Passwort); „Meine Umfragen“ auf jedem Gerät
 - **Teilnahme** wahlweise ohne Konto (Name + Schlüssel im Browser) oder pro Umfrage **nur mit Konto** (eindeutig, eine Stimme pro Person)
+- **Personen zu einer Umfrage einladen**: jede bekommt einen persönlichen Link (Abstimmen auch ohne Konto); du siehst, wer schon abgestimmt hat. Offene werden 24 h vor Schluss automatisch erinnert, oder per Knopf
 - **Registrierung** per Einladung, Firmen-Domain, Freischaltung durch Admin oder offen – kombinierbar; Benutzerverwaltung für Admins
 - **Mails** über beliebigen SMTP-Server (intern, Gmail, …): Login-Codes, Einladungen, Zusammenfassung neuer Antworten, finaler Termin
 - Verwaltungslink bleibt zusätzlich gültig (z. B. zum Weitergeben an Mit-Verwaltende)
@@ -131,13 +132,16 @@ Auth: `Authorization: <token>` (Login über PocketBase: `/api/collections/users/
 |---|---|---|
 | `GET` | `/api/eventi/config` | – (Sprache, Mail an/aus, Registrierungsmodus) |
 | `POST` | `/api/eventi/surveys` | Login → liefert `id` + `admin_key` |
-| `GET` | `/api/eventi/surveys/{id}` | optional Login, `X-Admin-Key` bzw. `X-Response-Id` + `X-Edit-Key` |
+| `GET` | `/api/eventi/surveys/{id}` | optional Login, `X-Admin-Key`, `X-Invite-Token` bzw. `X-Response-Id` + `X-Edit-Key` |
 | `PATCH`/`DELETE` | `/api/eventi/surveys/{id}` | Besitzer oder `X-Admin-Key` |
 | `POST` | `/api/eventi/surveys/{id}/responses` | – bzw. Login bei `require_login` → liefert `id` + `edit_key` |
 | `PATCH` | `/api/eventi/responses/{id}` | `X-Edit-Key` oder eigenes Konto |
 | `DELETE` | `/api/eventi/responses/{id}` | `X-Edit-Key`, eigenes Konto, Besitzer oder `X-Admin-Key` |
 | `GET`/`PATCH` | `/api/eventi/me` | Login (Name, Sprache, `mail_opt_out`) |
 | `GET` | `/api/eventi/me/surveys` | Login |
+| `GET`/`POST` | `/api/eventi/surveys/{id}/invitations` | Besitzer oder `X-Admin-Key` (Liste, Einladen: `{"emails": "..."}`) |
+| `POST` | `/api/eventi/surveys/{id}/invitations/remind` | Besitzer oder `X-Admin-Key` |
+| `DELETE` | `/api/eventi/invitations/{id}` | Besitzer oder `X-Admin-Key` |
 | `GET`/`POST` | `/api/eventi/users` | Admin (Liste, Einladen) |
 | `PATCH`/`DELETE` | `/api/eventi/users/{id}` | Admin (Freischalten, Sperren, Rolle, Passwort, Löschen inkl. Umfragen) |
 
