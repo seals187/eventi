@@ -386,5 +386,19 @@
   "zoom.label": "Display size: {n} %",
   "zoom.out": "Smaller ({n} %)",
   "zoom.in": "Larger ({n} %)",
-  "zoom.reset": "Reset to 100 %"
+  "zoom.reset": "Reset to 100 %",
+
+  "action.close": "Close",
+  "qr.title": "QR code & poster",
+  "qr.show": "Show",
+  "qr.desc": "Description",
+  "qr.link": "Link below the code",
+  "qr.deadline": "Vote until …",
+  "qr.print": "Print poster",
+  "qr.copy": "Copy QR only",
+  "qr.eyebrow": "Poll",
+  "qr.scan": "Scan & vote",
+  "qr.until": "Vote until {date}",
+  "qr.copied": "QR code copied",
+  "qr.copy_failed": "Copying is not possible – QR code downloaded as PNG"
 }

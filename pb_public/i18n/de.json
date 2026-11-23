@@ -386,5 +386,19 @@
   "zoom.label": "Anzeigegröße: {n} %",
   "zoom.out": "Kleiner ({n} %)",
   "zoom.in": "Größer ({n} %)",
-  "zoom.reset": "Zurück auf 100 %"
+  "zoom.reset": "Zurück auf 100 %",
+
+  "action.close": "Schließen",
+  "qr.title": "QR-Code & Aushang",
+  "qr.show": "Anzeigen",
+  "qr.desc": "Beschreibung",
+  "qr.link": "Link unter dem Code",
+  "qr.deadline": "Abstimmen bis …",
+  "qr.print": "Aushang drucken",
+  "qr.copy": "Nur QR kopieren",
+  "qr.eyebrow": "Umfrage",
+  "qr.scan": "Scannen & abstimmen",
+  "qr.until": "Abstimmen bis {date}",
+  "qr.copied": "QR-Code kopiert",
+  "qr.copy_failed": "Kopieren nicht möglich – QR-Code als PNG heruntergeladen"
 }

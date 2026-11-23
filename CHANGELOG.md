@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   “change answer” next to the status text, flatter “my answer” rows, narrower answer matrix
   (name column without time, smaller cells) – overview about 165 px shorter on a 390 px phone
 
+### Added
+- “QR code & poster” dialog on the admin page (QR icon): preview of a printable poster with title, optional
+  description, link and closing date; print it, copy only the QR code or download the poster as PNG
+
 ## [0.0.6] – 2026-11-23
 
 ### Changed

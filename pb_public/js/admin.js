@@ -8,13 +8,13 @@ import {
 } from "./results.js";
 import { initHeader, renderMineMenu } from "./header.js";
 import { loadInvites, participantsCard, openInviteForm, pendingInvites } from "./invites.js";
+import { openQrModal } from "./qrposter.js";
 
 const app = document.getElementById("app");
 const id = params.get("id");
 let key = hashParams.get("k") || "";
 
 let data = null;
-let showQr = false;
 let answersOpen = true;
 
 async function load() {
@@ -79,26 +79,16 @@ function headSection(s, progress) {
 
 function linkCard() {
   const pub = publicUrl(id);
-  const qrBox = h("div", { class: "qr" });
-  if (showQr && window.qrcode) {
-    const qr = window.qrcode(0, "M");
-    qr.addData(pub);
-    qr.make();
-    qrBox.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true, alt: t("admin.qr") });
-  }
   return h("section", { class: "card link-card" },
     h("div", { class: "link-row" },
       h("input", { type: "text", readonly: true, value: pub, "aria-label": t("success.public_link"), onfocus: (e) => e.target.select() }),
       h("button", { type: "button", class: "btn btn-primary", onclick: () => copyText(pub).then(() => toast(t("action.copied"))) }, icon("copy"), t("admin.copy_link")),
+      // QR code & printable poster dialog
       h("button", {
-        type: "button", class: `icon-pill${showQr ? " active" : ""}`, title: t("admin.qr"), "aria-label": t("admin.qr"), "aria-pressed": String(showQr),
-        onclick: () => {
-          showQr = !showQr;
-          render();
-        },
+        type: "button", class: "icon-pill", title: t("qr.title"), "aria-label": t("qr.title"), "aria-haspopup": "dialog",
+        onclick: () => openQrModal(data.survey, pub),
       }, icon("qr")),
       h("button", { type: "button", class: "btn", onclick: openInviteForm }, icon("mail"), t("invites.add"))),
-    showQr && qrBox,
     h("div", { class: "link-foot" },
       h("span", { class: "muted small" }, icon("lock"), " ", t("admin.secret_hint")),
       h("button", { type: "button", class: "btn-link small", onclick: () => copyText(adminUrl(id, key)).then(() => toast(t("action.copied"))) }, t("action.copy"))));

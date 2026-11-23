@@ -386,5 +386,19 @@
   "zoom.label": "Taille d’affichage : {n} %",
   "zoom.out": "Plus petit ({n} %)",
   "zoom.in": "Plus grand ({n} %)",
-  "zoom.reset": "Revenir à 100 %"
+  "zoom.reset": "Revenir à 100 %",
+
+  "action.close": "Fermer",
+  "qr.title": "Code QR & affiche",
+  "qr.show": "Afficher",
+  "qr.desc": "Description",
+  "qr.link": "Lien sous le code",
+  "qr.deadline": "Voter jusqu’au …",
+  "qr.print": "Imprimer l’affiche",
+  "qr.copy": "Copier le QR seul",
+  "qr.eyebrow": "Sondage",
+  "qr.scan": "Scanner & voter",
+  "qr.until": "Voter jusqu’au {date}",
+  "qr.copied": "Code QR copié",
+  "qr.copy_failed": "Copie impossible – code QR téléchargé en PNG"
 }
