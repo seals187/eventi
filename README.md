@@ -25,41 +25,46 @@ HTML/CSS/vanilla JS on top of [PocketBase](https://pocketbase.io) (SQLite), ship
 
 ```bash
 cp .env.example .env      # adjust as needed
-docker compose up -d --build
+docker compose up -d
 ```
 
 App: http://localhost:8090 · PocketBase dashboard: http://localhost:8090/_/
 
 The first eventi admin (and dashboard superuser) is `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` from `.env`.
 
-A prebuilt image is published automatically for every release (see the badges above for the current version):
+`docker-compose.yml` uses the official image `ghcr.io/seals187/eventi:latest`, published automatically for every
+release (see the badges above for the current version). Update with:
 
 ```bash
-docker pull ghcr.io/seals187/eventi:latest      # or a fixed version: ghcr.io/seals187/eventi:<version>
+docker compose pull && docker compose up -d
 ```
+
+To pin a version, change the image to `ghcr.io/seals187/eventi:<version>`.
 
 ### Releasing
 
-Bump `VERSION`, `EVENTI_VERSION` in `docker-compose.yml` and add a section to `CHANGELOG.md`, then push a tag:
+Bump `VERSION` and add a section to `CHANGELOG.md`, then push a tag:
 
 ```bash
-git tag -a v0.0.4 -m "eventi 0.0.4" && git push origin main v0.0.4
+git tag -a v1.2.3 -m "eventi 1.2.3" && git push origin main v1.2.3      # example version
 ```
 
 The workflow `.github/workflows/docker.yml` builds and publishes the Docker image (amd64 + arm64,
 tags `<version>`, `<major>.<minor>`, `latest`) and creates the GitHub release with the CHANGELOG section as notes.
 
-Development with live-mounted files (hooks reload automatically on change):
+Development with the local files mounted into the official image (hooks reload automatically on change):
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
+
+To build the image yourself: `docker build -t eventi .` (the PocketBase version is the `PB_VERSION` build argument
+in the `Dockerfile`).
 
 ## Configuration (`.env`)
 
-All settings live in `.env` (template: `.env.example`). Apply changes with `docker compose up -d`;
-`PB_VERSION` requires `docker compose up -d --build`. Values are applied on every start and override the
-corresponding settings in the dashboard.
+All settings live in `.env` (template: `.env.example`). Apply changes with `docker compose up -d`.
+Values are applied on every start and override the corresponding settings in the dashboard.
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -67,7 +72,6 @@ corresponding settings in the dashboard.
 | `EVENTI_BIND_IP` | `127.0.0.1` | IP for direct HTTP access (`0.0.0.0` = whole network) |
 | `TZ` | `Europe/Zurich` | Time zone of the container (also used for times in emails) |
 | `PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD` | – | Dashboard superuser and first eventi admin (password only set when the account is created) |
-| `PB_VERSION` | `0.40.5` | PocketBase version in the image |
 | `EVENTI_APP_NAME` | `eventi` | Name in the dashboard and in emails |
 | `EVENTI_APP_URL` | `http://localhost:8090` | Public address, used for links in emails |
 | `EVENTI_DEFAULT_LANG` | `de` | Fallback language if the browser language is not de/en/fr |

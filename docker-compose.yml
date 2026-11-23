@@ -1,12 +1,6 @@
 services:
   eventi:
-    build:
-      context: .
-      args:
-        PB_VERSION: ${PB_VERSION:-0.40.5}
-        EVENTI_VERSION: ${EVENTI_VERSION:-0.0.3}
-    # Prebuilt alternative: remove "build:" and use ghcr.io/seals187/eventi:<version>
-    image: eventi:latest
+    image: ghcr.io/seals187/eventi:latest
     container_name: eventi
     restart: unless-stopped
     ports:
