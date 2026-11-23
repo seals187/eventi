@@ -1,5 +1,5 @@
 // Voting page (s.html): tabs "Overview", "My answer" and "All answers".
-import { h, store, params, hashParams, toast, errorCard, icon, setChildren } from "./util.js";
+import { h, store, params, hashParams, toast, errorCard, icon, setChildren, autoTextarea } from "./util.js";
 import { t, initI18n, onLangChange, fmtDate, slotParts } from "./i18n.js";
 import { api, errMsg, subscribe, currentUser, setInviteToken } from "./api.js";
 import {
@@ -216,8 +216,9 @@ function renderMine() {
   s.questions.map((q) => questionInput(q, editable, s.questions.length > 1)),
   h("label", { class: "answer-block" },
     h("span", { class: "field-label muted" }, t("mine.comment")),
-    h("textarea", {
-      rows: 2, maxlength: 1000, value: draft.comment, disabled: !editable, placeholder: t("mine.comment_ph"),
+    // One line high like the placeholder; grows with the text
+    autoTextarea({
+      class: "comment-input", maxlength: 1000, value: draft.comment, disabled: !editable, placeholder: t("mine.comment_ph"),
       oninput: (e) => {
         draft.comment = e.target.value;
         dirty = true;

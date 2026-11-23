@@ -1263,3 +1263,6 @@ main.wrap.wide { max-width: 1180px; }
 }
 .compact .answer-card .error:empty { display: none; }
 .compact .answer-card .card-foot { margin-top: 10px; }
+
+/* "my answer": comment field one line high, grows with the text */
+textarea.comment-input { resize: none; overflow: hidden; min-height: 0; line-height: 1.4; padding: 8px 12px; }

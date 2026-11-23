@@ -182,7 +182,8 @@ export function autoTextarea(attrs) {
   const el = h("textarea", { rows: 1, ...attrs });
   const fit = () => {
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    // scrollHeight excludes the border; add it so bordered fields are not cut off
+    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
   };
   el.addEventListener("input", fit);
   requestAnimationFrame(fit);
