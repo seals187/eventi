@@ -42,7 +42,7 @@ docker run -d --name eventi-test --network "$NET" -p "127.0.0.1:$PORT:8090" \
   -e PB_ADMIN_EMAIL="$ADMIN_EMAIL" -e PB_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
   -e EVENTI_SMTP_HOST=eventi-mailpit -e EVENTI_SMTP_PORT=1025 -e EVENTI_MAIL_FROM=eventi@test.local \
   -e EVENTI_APP_URL="http://127.0.0.1:$PORT" -e EVENTI_SIGNUP=domain,approval -e EVENTI_SIGNUP_DOMAINS=firma.ch \
-  -e EVENTI_DIGEST_MINUTES=0 -e EVENTI_RATE_LIMIT=false \
+  -e EVENTI_DIGEST_MINUTES=0 -e EVENTI_RATE_LIMIT=false -e EVENTI_MAX_RESPONSES=10 \
   eventi:test >/dev/null || exit 1
 for _ in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$PORT/api/health" && break; sleep 1; done
 

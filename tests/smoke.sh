@@ -95,6 +95,69 @@ check "own response found via account" true "$(printf '%s' "$BODY" | grep -q '"m
 req POST "/api/eventi/surveys/$SID/responses" "$ANSWERS" "$AUTH"
 check "second vote rejected" 400 "$CODE"
 
+echo "== Survey rules"
+# Characterization tests: pin down current behaviour before refactoring
+msg() { printf '%s' "$BODY" | grep -o '"message":"[^"]*"' | cut -d'"' -f4; }
+mk() { # mk SETTINGS_JSON [EXTRA_FIELDS] -> sets RSID
+  req POST /api/eventi/surveys "{\"title\":\"Rules\",\"settings\":$1${2:+,$2},\"questions\":[{\"id\":\"q1\",\"type\":\"schedule\",\"label\":\"Wann?\",\"slots\":[\"2030-01-10\",\"2030-01-11\"]}]}" "$AUTH"
+  RSID=$(json id); CREATED="$CREATED $RSID"
+}
+CREATED=""
+
+mk '{"allow_edit":false}'
+req POST "/api/eventi/surveys/$RSID/responses" "$ANSWERS"
+RRID=$(json id); REKEY=$(json edit_key)
+req PATCH "/api/eventi/responses/$RRID" '{"name":"Changed"}' "X-Edit-Key: $REKEY"
+check "allow_edit=false: edit rejected" "Err.edit_disabled." "$(msg)"
+req DELETE "/api/eventi/responses/$RRID" "" "X-Edit-Key: $REKEY"
+check "allow_edit=false: delete by participant rejected" "Err.edit_disabled." "$(msg)"
+req DELETE "/api/eventi/responses/$RRID" "" "$AUTH"
+check "allow_edit=false: owner can still delete" 204 "$CODE"
+
+mk '{"results":"after_vote"}'
+req POST "/api/eventi/surveys/$RSID/responses" "$ANSWERS"
+RRID=$(json id); REKEY=$(json edit_key)
+req GET "/api/eventi/surveys/$RSID"
+check "after_vote: results hidden before voting" false "$(json can_see_results)"
+check "after_vote: no responses sent" 1 "$(printf '%s' "$BODY" | grep -c '"responses":null')"
+req GET "/api/eventi/surveys/$RSID" "" "X-Response-Id: $RRID" "X-Edit-Key: $REKEY"
+check "after_vote: results visible after voting" true "$(json can_see_results)"
+
+mk '{"results":"hidden"}'
+req POST "/api/eventi/surveys/$RSID/responses" "$ANSWERS"
+RRID=$(json id); REKEY=$(json edit_key)
+req GET "/api/eventi/surveys/$RSID" "" "X-Response-Id: $RRID" "X-Edit-Key: $REKEY"
+check "hidden: participant does not see results" false "$(json can_see_results)"
+req GET "/api/eventi/surveys/$RSID" "" "$AUTH"
+check "hidden: owner sees results" true "$(json can_see_results)"
+
+mk '{}'
+req PATCH "/api/eventi/surveys/$RSID" '{"closed":true}' "$AUTH"
+req POST "/api/eventi/surveys/$RSID/responses" "$ANSWERS"
+check "closed: vote rejected" "Err.closed." "$(msg)"
+req PATCH "/api/eventi/surveys/$RSID" '{"closed":false}' "$AUTH"
+req POST "/api/eventi/surveys/$RSID/responses" "$ANSWERS"
+check "reopened: vote accepted" 200 "$CODE"
+req PATCH "/api/eventi/surveys/$RSID" '{"closes_at":"2020-01-01T00:00:00.000Z"}' "$AUTH"
+check "closes_at in the past: survey is closed" true "$(json is_closed)"
+req POST "/api/eventi/surveys/$RSID/responses" "$ANSWERS"
+check "closes_at in the past: vote rejected" "Err.closed." "$(msg)"
+
+mk '{}'
+req PATCH "/api/eventi/surveys/$RSID" '{"final":{"q1":"2099-01-01"}}' "$AUTH"
+check "final: unknown slot is dropped" 1 "$(printf '%s' "$BODY" | grep -c '"final":{}')"
+req PATCH "/api/eventi/surveys/$RSID" '{"final":{"q1":"2030-01-11"}}' "$AUTH"
+check "final: valid slot is stored" 1 "$(printf '%s' "$BODY" | grep -c '"final":{"q1":"2030-01-11"}')"
+
+mk '{}'
+req GET /api/eventi/config
+MAXR=$(json max_responses)
+for _ in $(seq 1 "$MAXR"); do req POST "/api/eventi/surveys/$RSID/responses" "$ANSWERS"; done
+req POST "/api/eventi/surveys/$RSID/responses" "$ANSWERS"
+check "response limit ($MAXR) enforced" "Err.max_responses." "$(msg)"
+
+for s in $CREATED; do req DELETE "/api/eventi/surveys/$s" "" "$AUTH"; done
+
 echo "== User management"
 UEMAIL="smoke-$RANDOM@example.com"
 req POST /api/eventi/users "{\"email\":\"$UEMAIL\",\"name\":\"Smoke\",\"password\":\"smokepass123\"}" "$AUTH"
