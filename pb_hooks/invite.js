@@ -17,22 +17,6 @@ function findUserByEmail(email) {
   }
 }
 
-// Valid invitation for this survey + token, or null
-function byToken(surveyId, token) {
-  if (!token || typeof token !== "string" || token.length < 20) return null;
-  try {
-    const inv = $app.findFirstRecordByFilter("invitations", "token = {:t} && survey = {:s}", { t: token, s: surveyId });
-    const lib = require(`${__hooks}/lib.js`);
-    return lib.checkKey(token, inv.getString("token")) ? inv : null;
-  } catch (_) {
-    return null;
-  }
-}
-
-function fromRequest(e, surveyId) {
-  return byToken(surveyId, e.request.header.get("X-Invite-Token"));
-}
-
 // Emails of accounts that answered this survey (lower case)
 function accountEmails(surveyId) {
   const out = {};
@@ -129,9 +113,11 @@ function add(survey, text) {
   return { added: added, skipped: skipped };
 }
 
-// After a response was created: link it to the invitation (personal link or account email)
-function linkResponse(e, survey, response, user) {
-  let inv = fromRequest(e, survey.id);
+// After a response was created: link it to the participant's invitation
+// (personal link, or an invitation to the account's email address)
+function linkResponse(survey, response, who) {
+  let inv = who.invitation;
+  const user = who.user;
   if (!inv && user) {
     try {
       inv = $app.findFirstRecordByFilter("invitations", "survey = {:s} && email = {:e}", { s: survey.id, e: user.email().toLowerCase() });
@@ -281,6 +267,6 @@ function sendReminders() {
 }
 
 module.exports = {
-  byToken, fromRequest, list, add, linkResponse, queueReminders,
+  list, add, linkResponse, queueReminders,
   sendInvitations, scheduleAutoReminders, sendReminders, fmtDateTime,
 };

@@ -101,7 +101,7 @@ wait_mail "$ANNA" "Einladung $RUN" 90; check "invitation mail to Anna (German)" 
 wait_mail "$MAX" "Invitation: Einladung $RUN" 30; check "invitation mail to Max (his language: English)" 0 $?
 TOK=$(latest_text "$ANNA" | grep -o '#i=[A-Za-z0-9]*' | head -1 | cut -c4-)
 check "personal link in mail" 1 "$([ ${#TOK} -ge 20 ] && echo 1)"
-check "link identifies Anna" Anna "$(curl -s "$BASE/api/eventi/surveys/$SID" -H "X-Invite-Token: $TOK" | grep -o '"invitation":{[^}]*' | field name)"
+check "link identifies Anna" Anna "$(curl -s "$BASE/api/eventi/surveys/$SID" -H "X-Invite-Token: $TOK" | grep -o '"participant":{[^}]*' | field name)"
 check "anonymous vote without link rejected" 401 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/eventi/surveys/$SID/responses" -H "$H" -d '{"name":"X","answers":{}}')"
 R=$(curl -s -X POST "$BASE/api/eventi/surveys/$SID/responses" -H "$H" -H "X-Invite-Token: $TOK" -d '{"name":"Fake","answers":{"x":["A"]}}')
 check "vote via personal link (no account)" 1 "$(echo "$R" | grep -c '"edit_key"')"
@@ -125,7 +125,7 @@ post "/api/eventi/surveys/$SID/responses" '{"answers":{}}' "Authorization: $MAXT
 check "Max counted as voted after voting with account" true "$(curl -s "$BASE/api/eventi/surveys/$SID/invitations" -H "$ADM" | tr '}' '\n' | grep "$MAX" | grep -o '"voted":[a-z]*' | cut -d: -f2)"
 AIID=$(curl -s "$BASE/api/eventi/surveys/$SID/invitations" -H "$ADM" | tr '}' '\n' | grep "$ANNA" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
 curl -s -o /dev/null -X DELETE "$BASE/api/eventi/invitations/$AIID" -H "$ADM"
-check "removed invitation: link no longer works" 0 "$(curl -s "$BASE/api/eventi/surveys/$SID" -H "X-Invite-Token: $TOK" | grep -c '"invitation":{')"
+check "removed invitation: link no longer works" 1 "$(curl -s "$BASE/api/eventi/surveys/$SID" -H "X-Invite-Token: $TOK" | grep -c '"invited_as":""')"
 curl -s -o /dev/null -X DELETE "$BASE/api/eventi/surveys/$SID" -H "$ADM"
 
 echo "== Cleanup"

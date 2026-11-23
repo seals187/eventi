@@ -1,29 +1,22 @@
 // Voting page (s.html): tabs "Overview", "My answer" and "All answers".
-import { h, store, params, hashParams, toast, errorCard, icon, setChildren, autoTextarea } from "./util.js";
+// Who the participant is and what they may do comes from the server (data.participant);
+// credentials.js keeps the participant's credentials in this browser.
+import { h, store, params, toast, errorCard, icon, setChildren, autoTextarea } from "./util.js";
 import { t, initI18n, onLangChange, fmtDate, slotParts } from "./i18n.js";
-import { api, errMsg, subscribe, currentUser, setInviteToken } from "./api.js";
+import { api, errMsg, subscribe } from "./api.js";
 import {
   ICON, avatar, statusPills, favoriteCard, scheduleOverview, choiceOverview, textOverview,
   scheduleMatrix, choiceMatrix, commentsList, legend, sortResponses, exportCsv, finalBanner,
 } from "./results.js";
 import { initHeader, loginUrl } from "./header.js";
+import { surveyCredentials } from "./credentials.js";
 
 const app = document.getElementById("app");
 const id = params.get("id");
-const MINE_KEY = `eventi:r:${id}`;
 const NAME_KEY = "eventi:name";
-const INVITE_KEY = `eventi:i:${id}`;
-
-// Personal invitation link (#i=token): remember it for this survey and drop it from the address bar
-let inviteToken = hashParams.get("i") || store.get(INVITE_KEY) || "";
-if (hashParams.get("i")) {
-  store.set(INVITE_KEY, inviteToken);
-  history.replaceState(null, "", location.pathname + location.search);
-}
-setInviteToken(inviteToken);
+const creds = surveyCredentials(id);
 
 let data = null;
-let mine = store.get(MINE_KEY); // { id, key } of own response
 let draft = null;               // { name, answers, comment } being edited
 let dirty = false;
 // Active tab: "overview" | "mine" | "all" (deep link: s.html?id=…&tab=all)
@@ -32,34 +25,15 @@ let sortBy = "date";
 const els = {};
 
 async function load() {
-  const headers = mine ? { "X-Response-Id": mine.id, "X-Edit-Key": mine.key } : {};
-  data = await api.getSurvey(id, headers);
-  if (inviteToken && !data.invitation) {
-    // Invitation was removed by the owner
-    store.del(INVITE_KEY);
-    inviteToken = "";
-    setInviteToken("");
-  }
-  if (mine && !data.mine) {
-    store.del(MINE_KEY);
-    mine = null;
-  }
-  // Response given with the account (e.g. on another device): edit via login, no key needed
-  if (!mine && data.mine) mine = { id: data.mine.id, key: "" };
-}
-
-// Name used with "only with an account": account name, else the invitation's name
-function fixedName() {
-  if (currentUser()) return currentUser().display_name;
-  const inv = data.invitation;
-  return inv ? inv.name || inv.email.split("@")[0] : "";
+  data = await api.getSurvey(id, creds.headers());
+  creds.sync(data);
 }
 
 function initDraft() {
+  const who = data.participant;
   draft = data.mine
     ? { name: data.mine.name, answers: structuredClone(data.mine.answers), comment: data.mine.comment || "" }
-    : { name: data.invitation?.name || store.get(NAME_KEY) || currentUser()?.display_name || "", answers: {}, comment: "" };
-  if (data.survey.settings.require_login) draft.name = fixedName();
+    : { name: who.name_fixed ? who.name : who.name || store.get(NAME_KEY) || "", answers: {}, comment: "" };
   for (const q of data.survey.questions) {
     if (q.type !== "schedule") continue;
     if (!draft.answers[q.id]) draft.answers[q.id] = {};
@@ -71,8 +45,8 @@ function initDraft() {
 }
 
 const withFinal = (q) => ({ ...q, final: data.survey.final[q.id] });
-const canChange = () => !data.survey.is_closed && (!data.mine || data.survey.settings.allow_edit);
-const needsLogin = () => data.survey.settings.require_login && !currentUser() && !data.invitation && !data.mine;
+const canChange = () => (data.mine ? data.participant.can_edit : data.participant.can_respond);
+const needsLogin = () => data.participant.must_login && !data.mine;
 
 // --- layout ------------------------------------------------------------------------
 
@@ -193,7 +167,7 @@ function renderMine() {
     : h("div", { class: "answer-who" }, avatar(draft.name || "?", "avatar-me avatar-lg"),
       h("div", { class: "answer-who-main" },
         h("strong", {}, t("mine.title")),
-        s.settings.require_login
+        data.participant.name_fixed
           ? h("small", { class: "muted" }, t("vote.as_account", { name: draft.name }))
           : h("input", {
             type: "text", class: "name-input", maxlength: 60, value: draft.name, autocomplete: "name",
@@ -203,7 +177,7 @@ function renderMine() {
               dirty = true;
             },
           }),
-        data.invitation && h("small", { class: "muted" }, t("vote.invited_as", { email: data.invitation.email }))));
+        data.participant.invited_as && h("small", { class: "muted" }, t("vote.invited_as", { email: data.participant.invited_as }))));
 
   const form = h("form", {
     class: "card answer-card", novalidate: true,
@@ -296,7 +270,7 @@ function isEmpty(q, a) {
 async function submit(form, err) {
   const btn = form.querySelector("[type=submit]");
   const name = draft.name.trim();
-  if (!name && !data.survey.settings.require_login) {
+  if (!name && !data.participant.name_fixed) {
     err.textContent = t("err.name_required");
     return;
   }
@@ -310,13 +284,12 @@ async function submit(form, err) {
   try {
     const body = { name, answers: draft.answers, comment: draft.comment.trim() };
     if (data.mine) {
-      await api.updateVote(mine.id, mine.key, body);
+      await api.updateVote(data.mine.id, body, creds.headers());
     } else {
-      const r = await api.vote(id, body);
-      mine = { id: r.id, key: r.edit_key };
-      store.set(MINE_KEY, mine);
+      const r = await api.vote(id, body, creds.headers());
+      creds.remember(r.id, r.edit_key);
     }
-    if (!data.survey.settings.require_login) store.set(NAME_KEY, name);
+    if (!data.participant.name_fixed) store.set(NAME_KEY, name);
     dirty = false;
     draft = null;
     await load();
@@ -334,9 +307,8 @@ async function submit(form, err) {
 async function deleteMine() {
   if (!confirm(t("vote.delete_confirm"))) return;
   try {
-    await api.deleteVote(mine.id, mine.key ? { "X-Edit-Key": mine.key } : {});
-    store.del(MINE_KEY);
-    mine = null;
+    await api.deleteVote(data.mine.id, creds.headers());
+    creds.forgetResponse();
     draft = null;
     await load();
     tab = "overview";

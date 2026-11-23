@@ -30,6 +30,14 @@ json() {
   printf '%s' "$BODY" | grep -o "\"$1\":\(\"[^\"]*\"\|[^,}]*\)" | head -1 | sed -E "s/^\"$1\"://; s/^\"//; s/\"$//"
 }
 
+# jpath a.b.c -> value at that path in $BODY (real JSON parsing; booleans as true/false)
+jpath() {
+  printf '%s' "$BODY" | perl -MJSON::PP -0777 -e '
+    my $d = eval { JSON::PP->new->decode(<STDIN>) };
+    for my $k (split /\./, $ARGV[0]) { $d = ref $d eq "HASH" ? $d->{$k} : undef }
+    print !defined $d ? "" : JSON::PP::is_bool($d) ? ($d ? "true" : "false") : $d' "$1"
+}
+
 check() {
   local name="$1" want="$2" got="$3"
   if [ "$want" = "$got" ]; then
@@ -81,6 +89,13 @@ req PATCH "/api/eventi/responses/$RID" '{"name":"Anna B"}' "X-Edit-Key: $EKEY"
 check "edit with edit key" 200 "$CODE"
 req PATCH "/api/eventi/responses/$RID" '{"comment":"Am 26. bin ich weg."}' "X-Edit-Key: $EKEY"
 check "comment saved" "Am 26. bin ich weg." "$(json comment)"
+req POST "/api/eventi/surveys/$SID/responses" "$ANSWERS" "X-Response-Id: $RID" "X-Edit-Key: $EKEY"
+check "edit key counts as already voted" 400 "$CODE"
+req GET "/api/eventi/surveys/$SID" "" "X-Response-Id: $RID" "X-Edit-Key: $EKEY"
+check "participant: own response found by edit key" "$RID" "$(jpath mine.id)"
+check "participant: may edit own response" true "$(jpath participant.can_edit)"
+req GET "/api/eventi/surveys/$SID"
+check "participant: stranger may respond" true "$(jpath participant.can_respond)"
 req PATCH "/api/eventi/responses/$RID" '{"name":"X"}' "$AUTH"
 check "other account cannot edit" 403 "$CODE"
 req PATCH "/api/eventi/surveys/$SID" '{"settings":{"require_login":true}}' "$AUTH"

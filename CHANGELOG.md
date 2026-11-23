@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Internal: one participant module on the server decides which response is the participant's own
+  (account, then invitation, then edit key), whether they may respond, edit or see results, and their
+  name; the voting page only reads these flags. Responding again with a stored edit key is now rejected
+  as "already voted"
+
 ## [0.0.7] – 2026-11-23
 
 ### Changed

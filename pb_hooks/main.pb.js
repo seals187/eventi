@@ -34,39 +34,21 @@ routerAdd("POST", "/api/eventi/surveys", (e) => {
 routerAdd("GET", "/api/eventi/surveys/{id}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const rec = lib.findSurvey(e.request.pathValue("id"));
-  const admin = lib.canAdmin(e, rec);
-  const user = lib.currentUser(e);
-  const invitation = require(`${__hooks}/invite.js`).fromRequest(e, rec.id);
+  const p = require(`${__hooks}/participant.js`);
+  const who = p.participant(e, rec);
   const records = $app.findRecordsByFilter("responses", "survey = {:id}", "created", 0, 0, { id: rec.id });
-
-  const rid = e.request.header.get("X-Response-Id");
-  const rkey = e.request.header.get("X-Edit-Key");
-  const responses = [];
-  let mine = null;
-  for (let i = 0; i < records.length; i++) {
-    const dto = lib.responseDTO(records[i]);
-    const byKey = rid && dto.id === rid && lib.checkKey(rkey, records[i].getString("edit_key"));
-    const byAccount = user && records[i].getString("user") === user.id;
-    const byInvite = invitation && invitation.getString("response") === dto.id;
-    if (byKey || byAccount || byInvite) mine = dto;
-    responses.push(dto);
-  }
-
-  const survey = lib.surveyDTO(rec);
-  const mode = survey.settings.results;
-  const canSee = admin || mode === "always" || (mode === "after_vote" && (!!mine || survey.is_closed));
+  const responses = records.map((r) => lib.responseDTO(r));
 
   return e.json(200, {
-    survey: survey,
-    admin: admin,
+    survey: lib.surveyDTO(rec),
+    admin: who.admin,
     owner: lib.isOwner(e, rec),
-    admin_key: admin ? rec.getString("admin_key") : undefined,
-    can_see_results: canSee,
+    admin_key: who.admin ? rec.getString("admin_key") : undefined,
+    can_see_results: who.canSeeResults,
     count: responses.length,
-    responses: canSee ? responses : null,
-    mine: mine,
-    // Opened via a personal invitation link
-    invitation: invitation ? { name: invitation.getString("name"), email: invitation.getString("email") } : null,
+    responses: who.canSeeResults ? responses : null,
+    mine: who.response ? lib.responseDTO(who.response) : null,
+    participant: p.participantDTO(who),
   });
 });
 
@@ -94,33 +76,26 @@ routerAdd("DELETE", "/api/eventi/surveys/{id}", (e) => {
 routerAdd("POST", "/api/eventi/surveys/{id}/responses", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const survey = lib.findSurvey(e.request.pathValue("id"));
-  if (lib.isClosed(survey)) lib.fail("err.closed");
-  const settings = lib.surveyDTO(survey).settings;
-  const invite = require(`${__hooks}/invite.js`);
+  const who = require(`${__hooks}/participant.js`).participant(e, survey);
+  if (who.closed) lib.fail("err.closed");
   // A personal invitation link proves the address too, so it counts like a login
-  const invitation = invite.fromRequest(e, survey.id);
-  const user = settings.require_login && !invitation ? lib.requireUser(e) : lib.currentUser(e);
+  if (who.mustLogin) throw new UnauthorizedError("err.login_required");
+  if (who.response) lib.fail("err.already_voted");
   const count = $app.countRecords("responses", $dbx.hashExp({ survey: survey.id }));
   if (count >= lib.maxResponses()) lib.fail("err.max_responses");
-  if (user && $app.countRecords("responses", $dbx.hashExp({ survey: survey.id, user: user.id })) > 0) lib.fail("err.already_voted");
-  if (invitation && invitation.getString("response")) lib.fail("err.already_voted");
 
   const body = lib.readBody(e);
   const rec = new Record($app.findCollectionByNameOrId("responses"));
   rec.set("survey", survey.id);
   // With mandatory login the account (or invitation) name is used, so nobody votes under someone else's name
-  let name;
-  if (!settings.require_login) name = lib.cleanStr(body.name, "name", true);
-  else if (user) name = lib.displayName(user);
-  else name = invitation.getString("name") || invitation.getString("email").split("@")[0];
-  rec.set("name", name.slice(0, 60));
+  rec.set("name", who.nameIsFixed ? who.name() : lib.cleanStr(body.name, "name", true));
   rec.set("answers", lib.cleanAnswers(lib.readJSON(survey, "questions", []), body.answers));
   rec.set("comment", lib.cleanStr(body.comment, "comment", false));
-  if (user) rec.set("user", user.id);
+  if (who.user) rec.set("user", who.user.id);
   const key = lib.newKey();
   rec.set("edit_key", key);
   $app.save(rec);
-  invite.linkResponse(e, survey, rec, user);
+  require(`${__hooks}/invite.js`).linkResponse(survey, rec, who);
   lib.notify(survey.id);
   require(`${__hooks}/notify.js`).responseAdded(survey, rec);
   return e.json(200, { id: rec.id, edit_key: key });
@@ -129,14 +104,14 @@ routerAdd("POST", "/api/eventi/surveys/{id}/responses", (e) => {
 routerAdd("PATCH", "/api/eventi/responses/{id}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const rec = lib.findResponse(e.request.pathValue("id"));
-  if (!lib.ownsResponse(e, rec)) throw new ForbiddenError("err.forbidden");
   const survey = lib.findSurvey(rec.getString("survey"));
-  if (lib.isClosed(survey)) lib.fail("err.closed");
-  const settings = lib.surveyDTO(survey).settings;
-  if (!settings.allow_edit) lib.fail("err.edit_disabled");
+  const who = require(`${__hooks}/participant.js`).participant(e, survey, { responseId: rec.id });
+  if (!who.owns(rec)) throw new ForbiddenError("err.forbidden");
+  if (who.closed) lib.fail("err.closed");
+  if (!who.settings.allow_edit) lib.fail("err.edit_disabled");
 
   const body = lib.readBody(e);
-  if ("name" in body && !settings.require_login) rec.set("name", lib.cleanStr(body.name, "name", true));
+  if ("name" in body && !who.settings.require_login) rec.set("name", lib.cleanStr(body.name, "name", true));
   if ("answers" in body) rec.set("answers", lib.cleanAnswers(lib.readJSON(survey, "questions", []), body.answers));
   if ("comment" in body) rec.set("comment", lib.cleanStr(body.comment, "comment", false));
   $app.save(rec);
@@ -148,10 +123,12 @@ routerAdd("DELETE", "/api/eventi/responses/{id}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const rec = lib.findResponse(e.request.pathValue("id"));
   const survey = lib.findSurvey(rec.getString("survey"));
-  if (!lib.canAdmin(e, survey)) {
-    if (!lib.ownsResponse(e, rec)) throw new ForbiddenError("err.forbidden");
-    if (lib.isClosed(survey)) lib.fail("err.closed");
-    if (!lib.surveyDTO(survey).settings.allow_edit) lib.fail("err.edit_disabled");
+  const who = require(`${__hooks}/participant.js`).participant(e, survey, { responseId: rec.id });
+  // Survey managers may always delete; participants only their own, while editing is allowed
+  if (!who.admin) {
+    if (!who.owns(rec)) throw new ForbiddenError("err.forbidden");
+    if (who.closed) lib.fail("err.closed");
+    if (!who.settings.allow_edit) lib.fail("err.edit_disabled");
   }
   $app.delete(rec);
   lib.notify(survey.id);

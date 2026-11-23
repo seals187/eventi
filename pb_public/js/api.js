@@ -25,17 +25,12 @@ export function clearSession() {
 
 // --- Requests ----------------------------------------------------------------
 
-// Personal invitation token of the current survey page (sent as X-Invite-Token)
-let inviteToken = "";
-export const setInviteToken = (tok) => (inviteToken = tok || "");
-
 async function request(method, url, { body, headers } = {}) {
   const res = await fetch(url, {
     method,
     headers: {
       ...(body ? { "Content-Type": "application/json" } : {}),
       ...(session?.token ? { Authorization: session.token } : {}),
-      ...(inviteToken && url.startsWith("/api/eventi/") ? { "X-Invite-Token": inviteToken } : {}),
       ...headers,
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -60,8 +55,9 @@ export const api = {
   getSurvey: (id, headers) => req("GET", `/surveys/${encodeURIComponent(id)}`, { headers }),
   updateSurvey: (id, key, body) => req("PATCH", `/surveys/${id}`, { body, headers: key ? { "X-Admin-Key": key } : {} }),
   deleteSurvey: (id, key) => req("DELETE", `/surveys/${id}`, { headers: key ? { "X-Admin-Key": key } : {} }),
-  vote: (id, body) => req("POST", `/surveys/${id}/responses`, { body }),
-  updateVote: (rid, key, body) => req("PATCH", `/responses/${rid}`, { body, headers: key ? { "X-Edit-Key": key } : {} }),
+  // headers: participant credentials (credentials.js)
+  vote: (id, body, headers) => req("POST", `/surveys/${id}/responses`, { body, headers }),
+  updateVote: (rid, body, headers) => req("PATCH", `/responses/${rid}`, { body, headers }),
   deleteVote: (rid, headers) => req("DELETE", `/responses/${rid}`, { headers }),
 
   me: () => req("GET", "/me"),

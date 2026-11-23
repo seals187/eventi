@@ -316,16 +316,6 @@ function canAdmin(e, survey) {
   return checkKey(e.request.header.get("X-Admin-Key"), survey.getString("admin_key")) || isOwner(e, survey);
 }
 
-// Own response: edit key (no account) or the account that gave it
-function ownsResponse(e, rec) {
-  if (checkKey(e.request.header.get("X-Edit-Key"), rec.getString("edit_key"))) return true;
-  const u = currentUser(e);
-  if (u && rec.getString("user") === u.id) return true;
-  // Personal invitation link that was used for this response
-  const inv = require(`${__hooks}/invite.js`).fromRequest(e, rec.getString("survey"));
-  return !!inv && inv.getString("response") === rec.id;
-}
-
 function displayName(u) {
   const n = u.getString("name").trim();
   return n || u.email().split("@")[0];
@@ -354,6 +344,6 @@ function cleanLang(l) {
 module.exports = {
   fail, readBody, readJSON, newKey, checkKey, cleanStr, cleanAnswers, applySurvey,
   isClosed, findSurvey, findResponse, surveyDTO, responseDTO, maxResponses, notify, isoDate,
-  mailEnabled, signupConfig, signupStatus, currentUser, requireUser, requireAdmin, isOwner, canAdmin, ownsResponse,
+  mailEnabled, signupConfig, signupStatus, currentUser, requireUser, requireAdmin, isOwner, canAdmin,
   displayName, userDTO, cleanLang,
 };
