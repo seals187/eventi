@@ -23,7 +23,6 @@ onRecordCreateRequest((e) => {
   e.record.set("name", String(e.record.getString("name")).trim().slice(0, 60));
   e.next();
 
-  const mail = require(`${__hooks}/mail.js`);
   if (lib.mailEnabled()) {
     try {
       $mails.sendRecordVerification($app, e.record);
@@ -31,12 +30,7 @@ onRecordCreateRequest((e) => {
       $app.logger().error("eventi verification mail failed", "error", String(err));
     }
   }
-  if (status === "pending") {
-    const admins = $app.findRecordsByFilter("users", "role = 'admin' && status = 'active'", "", 50, 0);
-    mail.send(admins.map(mail.recipient), "pending", {
-      name: lib.displayName(e.record), email: e.record.email(), link: mail.url("users.html"),
-    });
-  }
+  if (status === "pending") require(`${__hooks}/outbox.js`).sendNow("signup_pending", { user: e.record.id });
 }, "users");
 
 // Every login (password, code, token refresh) must belong to an active account.
@@ -129,7 +123,6 @@ routerAdd("GET", "/api/eventi/users", (e) => {
 // invitation and signs in with a code; without mail the admin sets a password.
 routerAdd("POST", "/api/eventi/users", (e) => {
   const lib = require(`${__hooks}/lib.js`);
-  const mail = require(`${__hooks}/mail.js`);
   const admin = lib.requireAdmin(e);
   const body = lib.readBody(e);
   const email = String(body.email || "").trim().toLowerCase();
@@ -155,18 +148,16 @@ routerAdd("POST", "/api/eventi/users", (e) => {
   u.setVerified(true);
   $app.save(u);
 
-  const mailed = mail.send([mail.recipient(u)], "invite", {
-    inviter: lib.displayName(admin), email: email, link: mail.url("login.html?mode=code&email=" + encodeURIComponent(email)),
-  });
+  const sent = require(`${__hooks}/outbox.js`).sendNow("account_invite", { user: u.id, inviter: admin.id });
   const dto = lib.userDTO(u);
   dto.surveys = 0;
-  dto.mailed = mailed > 0;
+  // "retry": delivery failed for now but the outbox keeps trying
+  dto.mailed = sent === "sent" || sent === "retry";
   return e.json(200, dto);
 });
 
 routerAdd("PATCH", "/api/eventi/users/{id}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
-  const mail = require(`${__hooks}/mail.js`);
   const admin = lib.requireAdmin(e);
   let u;
   try {
@@ -196,7 +187,7 @@ routerAdd("PATCH", "/api/eventi/users/{id}", (e) => {
   }
   $app.save(u);
   if (wasPending && u.getString("status") === "active") {
-    mail.send([mail.recipient(u)], "approved", { link: mail.url("login.html?email=" + encodeURIComponent(u.email())) });
+    require(`${__hooks}/outbox.js`).sendNow("account_approved", { user: u.id });
   }
   const dto = lib.userDTO(u);
   dto.surveys = $app.countRecords("surveys", $dbx.hashExp({ owner: u.id }));

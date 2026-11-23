@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Invitations per survey: personal links, "who has voted", reminders.
-// Mails are queued on the record and sent by the cron job in notify.pb.js.
+// Emails (invitation, reminder) are jobs in the outbox (outbox.js).
 
 const MAX_PER_SURVEY = 200;
 const MAX_PER_REQUEST = 50;
@@ -43,7 +43,7 @@ function dto(inv, emails) {
     voted: hasVoted(inv, emails),
     invite_sent: lib.isoDate(inv.getString("invite_sent")),
     reminded_at: lib.isoDate(inv.getString("reminded_at")),
-    remind_queued: !!inv.getString("remind_due"),
+    remind_queued: require(`${__hooks}/outbox.js`).isPending("reminder:" + inv.id),
     created: lib.isoDate(inv.getString("created")),
   };
 }
@@ -77,7 +77,7 @@ function parse(text) {
   return { items: out };
 }
 
-// Creates invitations (mails are queued). Returns { added, skipped }.
+// Creates invitations; their emails go through the outbox. Returns { added, skipped }.
 function add(survey, text) {
   const lib = require(`${__hooks}/lib.js`);
   if (!lib.mailEnabled()) lib.fail("err.mail_disabled");
@@ -108,6 +108,7 @@ function add(survey, text) {
     r.set("name", it.name || (u ? lib.displayName(u) : ""));
     r.set("token", lib.newKey());
     $app.save(r);
+    require(`${__hooks}/outbox.js`).enqueue("survey_invite", { invitation: r.id });
     added++;
   }
   return { added: added, skipped: skipped };
@@ -127,33 +128,48 @@ function linkResponse(survey, response, who) {
   }
   if (inv && !inv.getString("response")) {
     inv.set("response", response.id);
-    inv.set("remind_due", "");
     $app.save(inv);
   }
 }
 
-// Queues a reminder for everyone who has not voted (and was not reminded in the last 12 h)
+// Queues a reminder for everyone who has not voted (and was not reminded in the last 12 h).
+// Returns the number of newly queued reminders.
 function queueReminders(survey, force) {
+  const outbox = require(`${__hooks}/outbox.js`);
   const emails = accountEmails(survey.id);
   const recent = Date.now() - 12 * 3600000;
   const recs = $app.findRecordsByFilter("invitations", "survey = {:id} && invite_sent != ''", "", 0, 0, { id: survey.id });
   let n = 0;
   for (let i = 0; i < recs.length; i++) {
     const r = recs[i];
-    if (hasVoted(r, emails) || r.getString("remind_due")) continue;
+    if (hasVoted(r, emails)) continue;
     const last = r.getString("reminded_at");
     if (!force && last) continue;
     // Automatic reminder: not for people who were only just invited
     if (!force && new Date(r.getString("invite_sent").replace(" ", "T")).getTime() > recent) continue;
     if (last && new Date(last.replace(" ", "T")).getTime() > recent) continue;
-    r.set("remind_due", new Date().toISOString());
-    $app.save(r);
-    n++;
+    const q = outbox.enqueue("reminder", { invitation: r.id }, { bundle: "reminder:" + r.id, bundleMode: "keep" });
+    if (q && q.created) n++;
   }
   return n;
 }
 
-// --- mails (cron) ------------------------------------------------------------
+// Cron: surveys closing within 24 h get their automatic reminder, once per closing time
+function scheduleAutoReminders() {
+  const outbox = require(`${__hooks}/outbox.js`);
+  const now = new Date();
+  const soon = new Date(now.getTime() + 24 * 3600000);
+  const recs = $app.findRecordsByFilter("surveys", "closed = false && closes_at != '' && closes_at > {:now} && closes_at <= {:soon}",
+    "", 200, 0, { now: pbDate(now), soon: pbDate(soon) });
+  for (let i = 0; i < recs.length; i++) {
+    const s = recs[i];
+    outbox.enqueue("auto_reminders", { survey: s.id }, { bundle: autoReminderBundle(s), bundleMode: "once" });
+  }
+}
+
+const autoReminderBundle = (survey) => "auto-reminder:" + survey.id + ":" + survey.getString("closes_at");
+
+// --- emails (delivered by the outbox) ----------------------------------------------
 
 const DOW = {
   de: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
@@ -171,6 +187,7 @@ function fmtDateTime(lang, iso) {
   return (DOW[lang] || DOW.de)[d.getDay()] + " " + date + ", " + pad(d.getHours()) + ":" + pad(d.getMinutes());
 }
 
+// Invited person as recipient: their account's language if they have one, else the owner's
 function recipientFor(inv, owner) {
   const mail = require(`${__hooks}/mail.js`);
   const u = findUserByEmail(inv.getString("email"));
@@ -192,81 +209,60 @@ function mailVars(survey, owner, inv, lang) {
   };
 }
 
-function findSurveyOrNull(id) {
+function findRecord(collection, id) {
+  if (!id) return null;
   try {
-    return $app.findRecordById("surveys", id);
+    return $app.findRecordById(collection, id);
   } catch (_) {
     return null;
   }
 }
 
-function ownerOf(survey) {
-  try {
-    return survey.getString("owner") ? $app.findRecordById("users", survey.getString("owner")) : null;
-  } catch (_) {
-    return null;
-  }
+// Invitation and its survey/owner, or null if either is gone
+function invitationContext(id) {
+  const inv = findRecord("invitations", id);
+  const survey = inv && findRecord("surveys", inv.getString("survey"));
+  if (!survey) return null;
+  return { inv: inv, survey: survey, owner: findRecord("users", survey.getString("owner")) };
 }
 
-function sendInvitations() {
-  const mail = require(`${__hooks}/mail.js`);
-  const recs = $app.findRecordsByFilter("invitations", "invite_sent = ''", "created", 100, 0);
-  for (let i = 0; i < recs.length; i++) {
-    const inv = recs[i];
-    inv.set("invite_sent", new Date().toISOString());
-    $app.save(inv);
-    const survey = findSurveyOrNull(inv.getString("survey"));
-    if (!survey) continue;
-    const owner = ownerOf(survey);
-    const r = recipientFor(inv, owner);
-    mail.send([r], "survey_invite", mailVars(survey, owner, inv, r.lang));
-  }
-}
+const mailJobs = {
+  survey_invite(p) {
+    const c = invitationContext(p.invitation);
+    if (!c) return { mails: [] };
+    const to = recipientFor(c.inv, c.owner);
+    return {
+      mails: [{ to: to, key: "survey_invite", vars: mailVars(c.survey, c.owner, c.inv, to.lang) }],
+      done: () => {
+        c.inv.set("invite_sent", new Date().toISOString());
+        $app.save(c.inv);
+      },
+    };
+  },
 
-// Automatic reminder: 24 h before closes_at, once per closing time
-function scheduleAutoReminders() {
-  const now = new Date();
-  const soon = new Date(now.getTime() + 24 * 3600000);
-  const recs = $app.findRecordsByFilter("surveys",
-    "closed = false && closes_at != '' && closes_at > {:now} && closes_at <= {:soon} && reminder_for != closes_at",
-    "", 100, 0, { now: pbDate(now), soon: pbDate(soon) });
-  for (let i = 0; i < recs.length; i++) {
-    const s = recs[i];
-    s.set("reminder_for", s.getString("closes_at"));
-    $app.save(s);
-    queueReminders(s, false);
-  }
-}
+  reminder(p) {
+    const lib = require(`${__hooks}/lib.js`);
+    const c = invitationContext(p.invitation);
+    if (!c || lib.isClosed(c.survey) || hasVoted(c.inv, accountEmails(c.survey.id))) return { mails: [] };
+    const to = recipientFor(c.inv, c.owner);
+    return {
+      mails: [{ to: to, key: "reminder", vars: mailVars(c.survey, c.owner, c.inv, to.lang) }],
+      done: () => {
+        c.inv.set("reminded_at", new Date().toISOString());
+        $app.save(c.inv);
+      },
+    };
+  },
 
-function sendReminders() {
-  const lib = require(`${__hooks}/lib.js`);
-  const mail = require(`${__hooks}/mail.js`);
-  const recs = $app.findRecordsByFilter("invitations", "remind_due != '' && remind_due <= {:now}", "remind_due", 100, 0, { now: pbDate(new Date()) });
-  const emailsBySurvey = {};
-  for (let i = 0; i < recs.length; i++) {
-    const inv = recs[i];
-    inv.set("remind_due", "");
-    const survey = findSurveyOrNull(inv.getString("survey"));
-    if (!survey || lib.isClosed(survey)) {
-      $app.save(inv);
-      continue;
-    }
-    const sid = survey.id;
-    if (!emailsBySurvey[sid]) emailsBySurvey[sid] = accountEmails(sid);
-    if (hasVoted(inv, emailsBySurvey[sid])) {
-      $app.save(inv);
-      continue;
-    }
-    inv.set("reminded_at", new Date().toISOString());
-    $app.save(inv);
-    const owner = ownerOf(survey);
-    const r = recipientFor(inv, owner);
-    if (r.user && r.user.getBool("mail_opt_out")) continue;
-    mail.send([r], "reminder", mailVars(survey, owner, inv, r.lang));
-  }
-}
+  // Queues the individual reminders when the automatic reminder is due
+  auto_reminders(p) {
+    const lib = require(`${__hooks}/lib.js`);
+    const s = findRecord("surveys", p.survey);
+    if (s && !lib.isClosed(s)) queueReminders(s, false);
+    return { mails: [] };
+  },
+};
 
 module.exports = {
-  list, add, linkResponse, queueReminders,
-  sendInvitations, scheduleAutoReminders, sendReminders, fmtDateTime,
+  list, add, linkResponse, queueReminders, scheduleAutoReminders, mailJobs, fmtDateTime,
 };

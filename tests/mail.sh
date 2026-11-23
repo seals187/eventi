@@ -5,7 +5,9 @@
 #   EVENTI_SIGNUP_DOMAINS=firma.ch EVENTI_DIGEST_MINUTES=0 EVENTI_RATE_LIMIT=false
 #
 #   BASE=http://127.0.0.1:8098 MAILPIT=http://127.0.0.1:8025 ADMIN_EMAIL=... ADMIN_PASSWORD=... tests/mail.sh
-# Takes ~2 minutes (waits for the notification cron job).
+# The superuser route POST /api/eventi/outbox/run delivers queued emails at once, so the test
+# does not wait for the cron job. The retry test stops and restarts the Mailpit container
+# (only if docker and the container MAILPIT_CONTAINER, default eventi-mailpit, are available).
 set -u
 
 BASE="${BASE:-http://127.0.0.1:8098}"
@@ -31,8 +33,10 @@ latest_text() {
   id=$(curl -s "$MAILPIT/api/v1/search?query=to:$1" | grep -o '"ID":"[^"]*"' | head -1 | cut -d'"' -f4)
   curl -s "$MAILPIT/api/v1/message/$id" | grep -o '"Text":"[^"]*"' | cut -d'"' -f4
 }
+# Deliver everything queued in the outbox now (incl. jobs not due yet and automatic reminders)
+flush() { curl -s -o /dev/null -X POST "$BASE/api/eventi/outbox/run?all=1&auto=1" -H "$SU"; }
 wait_mail() { # wait_mail ADDRESS PATTERN [SECONDS]
-  for _ in $(seq 1 "${3:-10}"); do subjects "$1" | grep -q "$2" && return 0; sleep 1; done
+  for _ in $(seq 1 "${3:-10}"); do flush; subjects "$1" | grep -q "$2" && return 0; sleep 1; done
   return 1
 }
 
@@ -40,6 +44,10 @@ MAX="max-$RUN@firma.ch"
 EVA="eva-$RUN@example.org"
 ADMTOKEN=$(post /api/collections/users/auth-with-password "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" | field token)
 ADM="Authorization: $ADMTOKEN"
+SU="Authorization: $(post /api/collections/_superusers/auth-with-password "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" | field token)"
+
+echo "== Outbox"
+check "outbox run needs the superuser" 403 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/eventi/outbox/run" -H "$ADM")"
 
 echo "== Sign-up"
 R=$(post /api/collections/users/records "{\"email\":\"$MAX\",\"password\":\"maxpass123\",\"passwordConfirm\":\"maxpass123\",\"name\":\"Max\",\"lang\":\"en\",\"role\":\"admin\"}")
@@ -75,7 +83,7 @@ INV="inv-$RUN@example.org"
 post /api/eventi/users "{\"email\":\"$INV\",\"name\":\"Ines\",\"lang\":\"fr\"}" "$ADM" >/dev/null
 wait_mail "$INV" "Invitation"; check "invitation mail (French)" 0 $?
 
-echo "== Notifications (waiting for cron, up to 2 min)"
+echo "== Notifications"
 SID=$(post /api/eventi/surveys '{"title":"Mail <Test> '"$RUN"'","questions":[{"type":"schedule","label":"Wann?","slots":["2030-01-10T18:00","2030-01-11"]}]}' "$ADM" | field id)
 post "/api/eventi/surveys/$SID/responses" '{"name":"Max","answers":{}}' "Authorization: $MAXTOKEN" >/dev/null
 post "/api/eventi/surveys/$SID/responses" '{"name":"Lisa","answers":{}}' >/dev/null
@@ -88,7 +96,7 @@ wait_mail "$MAX" "Date confirmed" 130; check "final date mail to participant (En
 check "final date formatted" 1 "$(latest_text "$MAX" | grep -c 'Thu 2030-01-10, 18:00')"
 curl -s -o /dev/null -X DELETE "$BASE/api/eventi/surveys/$SID" -H "$ADM"
 
-echo "== Survey invitations + reminders (waiting for cron, up to 2 min)"
+echo "== Survey invitations + reminders"
 ANNA="anna-$RUN@example.org"
 CLOSES=$(date -u -d '+2 hours' +%Y-%m-%dT%H:%M:%S.000Z)
 SID=$(post /api/eventi/surveys '{"title":"Einladung '"$RUN"'","settings":{"require_login":true},"closes_at":"'"$CLOSES"'","questions":[{"type":"choice","label":"Was?","options":["A","B"]}]}' "$ADM" | field id)
@@ -112,9 +120,8 @@ check "name taken from invitation" 0 "$(curl -s "$BASE/api/eventi/surveys/$SID" 
 INVS=$(curl -s "$BASE/api/eventi/surveys/$SID/invitations" -H "$ADM")
 check "Anna counted as voted" true "$(echo "$INVS" | tr '}' '\n' | grep "$ANNA" | grep -o '"voted":[a-z]*' | cut -d: -f2)"
 check "Max still pending" false "$(echo "$INVS" | tr '}' '\n' | grep "$MAX" | grep -o '"voted":[a-z]*' | cut -d: -f2)"
-SU="Authorization: $(post /api/collections/_superusers/auth-with-password "{\"identity\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" | field token)"
-for _ in $(seq 1 70); do curl -s "$BASE/api/collections/surveys/records/$SID?fields=reminder_for" -H "$SU" | grep -q '"reminder_for":"2' && break; sleep 2; done
-check "automatic reminder scheduled (closes within 24 h)" 1 "$(curl -s "$BASE/api/collections/surveys/records/$SID?fields=reminder_for" -H "$SU" | grep -c '"reminder_for":"2')"
+flush; flush
+check "automatic reminder scheduled once (closes within 24 h)" 1 "$(curl -s -G "$BASE/api/collections/outbox/records" --data-urlencode "filter=bundle~'auto-reminder:$SID'" -H "$SU" | grep -o '"totalItems":[0-9]*' | cut -d: -f2)"
 check "automatic reminder skips people invited just now" 0 "$(curl -s "$BASE/api/eventi/surveys/$SID/invitations" -H "$ADM" | grep -c '"remind_queued":true')"
 check "manual reminder queued for Max only" 1 "$(post "/api/eventi/surveys/$SID/invitations/remind" '{}' "$ADM" | grep -o '"queued":[0-9]*' | cut -d: -f2)"
 wait_mail "$MAX" "Reminder: Einladung $RUN" 90; check "reminder mail (English)" 0 $?
@@ -127,6 +134,21 @@ AIID=$(curl -s "$BASE/api/eventi/surveys/$SID/invitations" -H "$ADM" | tr '}' '\
 curl -s -o /dev/null -X DELETE "$BASE/api/eventi/invitations/$AIID" -H "$ADM"
 check "removed invitation: link no longer works" 1 "$(curl -s "$BASE/api/eventi/surveys/$SID" -H "X-Invite-Token: $TOK" | grep -c '"invited_as":""')"
 curl -s -o /dev/null -X DELETE "$BASE/api/eventi/surveys/$SID" -H "$ADM"
+
+MPC="${MAILPIT_CONTAINER:-eventi-mailpit}"
+if command -v docker >/dev/null 2>&1 && docker inspect "$MPC" >/dev/null 2>&1; then
+  echo "== Outbox retries (mail server down)"
+  RETRY="retry-$RUN@example.org"
+  docker stop -t 1 "$MPC" >/dev/null
+  R=$(post /api/eventi/users "{\"email\":\"$RETRY\",\"name\":\"Retry\",\"password\":\"retrypass123\"}" "$ADM")
+  check "account created although the mail server is down" 1 "$(echo "$R" | grep -c '"mailed":true')"
+  JOB=$(curl -s -G "$BASE/api/collections/outbox/records" --data-urlencode "filter=kind='account_invite' && status='pending' && attempts=1" -H "$SU")
+  check "failed delivery is queued for a retry" 1 "$(echo "$JOB" | grep -o '"totalItems":[0-9]*' | cut -d: -f2)"
+  check "the error is recorded" 1 "$(echo "$JOB" | grep -c '"last_error":"[^"]')"
+  docker start "$MPC" >/dev/null
+  for _ in $(seq 1 30); do curl -s -o /dev/null "$MAILPIT/api/v1/messages" && break; sleep 1; done
+  wait_mail "$RETRY" "Einladung" 15; check "retry delivers once the mail server is back" 0 $?
+fi
 
 echo "== Cleanup"
 for u in $(curl -s "$BASE/api/eventi/users" -H "$ADM" | tr '}' '\n' | grep -- "-$RUN@" | grep -o '"id":"[^"]*"' | cut -d'"' -f4); do

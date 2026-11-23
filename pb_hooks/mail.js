@@ -136,32 +136,22 @@ function list(items) {
   return '<ul style="padding-left:20px">' + items.map((s) => "<li>" + esc(s) + "</li>").join("") + "</ul>";
 }
 
-// Sends one mail per recipient. Errors are logged, never thrown, so a mail
-// problem does not break the request that triggered it.
-function send(recipients, key, vars) {
-  if (!$app.settings().smtp.enabled) return 0;
+// Sends one email (template "key" in the recipient's language). Throws on failure, so the
+// outbox (outbox.js) can retry; all eventi emails go through the outbox.
+function deliver(to, key, vars) {
   const meta = $app.settings().meta;
-  let sent = 0;
-  for (let i = 0; i < recipients.length; i++) {
-    const r = recipients[i];
-    try {
-      const m = render(r.lang || defaultLang(), key, typeof vars === "function" ? vars(r) : vars);
-      $app.newMailClient().send(new MailerMessage({
-        from: { address: meta.senderAddress, name: meta.senderName },
-        to: [{ address: r.email, name: r.name || "" }],
-        subject: m.subject,
-        html: m.html,
-        text: m.text,
-      }));
-      sent++;
-    } catch (err) {
-      $app.logger().error("eventi mail failed", "key", key, "to", r.email, "error", String(err));
-    }
-  }
-  return sent;
+  const m = render(to.lang || defaultLang(), key, vars);
+  $app.newMailClient().send(new MailerMessage({
+    from: { address: meta.senderAddress, name: meta.senderName },
+    to: [{ address: to.email, name: to.name || "" }],
+    subject: m.subject,
+    html: m.html,
+    text: m.text,
+  }));
 }
 
-const recipient = (u) => ({ email: u.email(), name: u.getString("name"), lang: langOf(u) });
+// Recipient of an account (user is kept for the outbox's eligibility rule)
+const recipient = (u) => ({ email: u.email(), name: u.getString("name"), lang: langOf(u), user: u });
 
 // Replaces subject/body of a PocketBase system mail (OTP, verification, reset) with our template
 function rewrite(e, key, vars) {
@@ -171,4 +161,4 @@ function rewrite(e, key, vars) {
   e.message.text = m.text;
 }
 
-module.exports = { T, esc, render, send, list, url, langOf, defaultLang, recipient, rewrite };
+module.exports = { T, esc, render, deliver, list, url, langOf, defaultLang, recipient, rewrite };

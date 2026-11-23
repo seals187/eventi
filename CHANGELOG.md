@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Internal: survey rules (limits, result modes, default settings, response limit) come from the server
   in `/api/eventi/config` (`rules`); the browser no longer hard-codes them. `max_responses` moved to
   `rules.limits.responses`
+- Internal: all emails go through one outbox (`outbox` collection): email jobs with due time, bundles
+  (digest, final date, reminders), one rule for who gets emails (accounts only while active and not opted
+  out - also for the admin notice about pending sign-ups), retries after 1, 5 and 30 minutes, then
+  `failed` (visible in the dashboard); cleanup after 30 days. A migration carries over pending emails and
+  removes the old scheduling fields
+
+### Added
+- `POST /api/eventi/outbox/run` (PocketBase superuser): deliver queued emails now; the test suite uses it
+  and runs in about a minute instead of four
 
 ## [0.0.7] – 2026-11-23
 

@@ -130,8 +130,10 @@ bash tests/docker-test.sh
 ```
 
 Builds a test image, starts it isolated together with [Mailpit](https://mailpit.axllent.org/) as test mail server
-(no email leaves the machine) and runs `tests/smoke.sh` (API, permissions) and `tests/mail.sh` (sign-up, code login,
-invitations, reminders, notifications). Your `.env` and running containers are not touched.
+(no email leaves the machine) and runs `tests/smoke.sh` (API, permissions, survey rules) and `tests/mail.sh` (sign-up,
+code login, invitations, reminders, notifications, outbox retries with the mail server stopped). The whole run takes
+about a minute: the tests deliver queued emails through the superuser route instead of waiting for the cron job.
+Your `.env` and running containers are not touched. Requirements: docker, bash, curl, perl.
 
 Afterwards the test containers keep running for manual testing: eventi on http://127.0.0.1:8098
 (admin `admin@test.local` / `adminpass123`) and Mailpit with all emails on http://127.0.0.1:8025.
@@ -140,16 +142,24 @@ Remove them with `docker rm -f eventi-test eventi-mailpit`, or run `CLEAN=1 bash
 ## Architecture
 
 ```
-pb_migrations/   Schema (surveys, responses, invitations, users extension) – all collection rules locked
-pb_hooks/        main.pb.js        poll API /api/eventi/*          lib.js      validation, permissions
-                 auth.pb.js        sign-up, login rules, user API   mail.js     email texts de/en/fr
-                 invitations.pb.js invitation API                   invite.js   invitations, reminders
-                 notify.pb.js      cron job for all emails          notify.js   digests, final date
-                 settings.pb.js / accounts.js   .env -> PocketBase settings, admin account
+pb_migrations/   Schema (surveys, responses, invitations, outbox, users extension) – all collection rules locked
+pb_hooks/        main.pb.js        survey API /api/eventi/*        lib.js         validation, survey rules, permissions
+                 auth.pb.js        sign-up, login rules, user API   participant.js who is responding, what they may do
+                 invitations.pb.js invitation API                   invite.js      invitations, reminders
+                 notify.pb.js      cron + outbox run route          notify.js      digests, final date
+                                                                    outbox.js      email jobs, bundles, retries
+                                                                    mail.js        email texts de/en/fr
+                 settings.pb.js / accounts.js   .env -> PocketBase settings, admin account, account emails
 pb_public/       index.html (create), s.html (vote), a.html (manage), login.html, account.html, users.html
-  js/            ES modules without build; vendor/qrcode.js (MIT); i18n/*.json for translations
-tests/           docker-test.sh, smoke.sh, mail.sh
+  js/            ES modules without build: api.js (surveyClient), credentials.js, rules.js, …;
+                 vendor/qrcode.js (MIT); i18n/*.json for translations
+tests/           docker-test.sh, smoke.sh, mail.sh, seed-demo.sh
+GLOSSARY.md      domain language (survey, participant, credentials, outbox, …)
 ```
+
+All emails go through the **outbox** (`outbox` collection): every email is a job with a due time; jobs of the same
+kind for the same survey are bundled, failed deliveries are retried after 1, 5 and 30 minutes and then marked
+`failed` (visible in the PocketBase dashboard). Sent and failed jobs are deleted after 30 days.
 
 ### API
 
@@ -158,7 +168,7 @@ Authentication: `Authorization: <token>` (login via PocketBase: `/api/collection
 
 | Method | Path | Permission |
 |---|---|---|
-| `GET` | `/api/eventi/config` | – (version, language, email on/off, sign-up mode) |
+| `GET` | `/api/eventi/config` | – (version, language, email on/off, sign-up mode, survey rules) |
 | `POST` | `/api/eventi/surveys` | login → returns `id` + `admin_key` |
 | `GET` | `/api/eventi/surveys/{id}` | optional login, `X-Admin-Key`, `X-Invite-Token` or `X-Response-Id` + `X-Edit-Key` |
 | `PATCH`/`DELETE` | `/api/eventi/surveys/{id}` | owner or `X-Admin-Key` |
@@ -172,6 +182,7 @@ Authentication: `Authorization: <token>` (login via PocketBase: `/api/collection
 | `GET` | `/api/eventi/me/surveys` | login |
 | `GET`/`POST` | `/api/eventi/users` | admin (list, invite) |
 | `PATCH`/`DELETE` | `/api/eventi/users/{id}` | admin (approve, block, role, password, delete incl. polls) |
+| `POST` | `/api/eventi/outbox/run` | PocketBase superuser (deliver due emails now; `?all=1` also not yet due ones) |
 
 Realtime: subscribe to `/api/realtime` with topic `eventi:<surveyId>` → event `{"t":"changed"}`.
 
