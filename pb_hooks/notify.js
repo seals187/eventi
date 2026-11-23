@@ -6,26 +6,9 @@
 //   final  – participants with an account get the confirmed final date (bundled per survey,
 //            1 minute delay, so undoing a misclick sends nothing)
 
-const DOW = {
-  de: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
-  en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-  fr: ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."],
-};
-
 function digestMinutes() {
   const n = parseInt($os.getenv("EVENTI_DIGEST_MINUTES") || "15", 10);
   return n >= 0 ? n : 15;
-}
-
-// "2026-12-05T18:00" -> "Sa 05.12.2026, 18:00" / "Sat 2026-12-05, 18:00"
-function fmtSlot(lang, slot) {
-  const mail = require(`${__hooks}/mail.js`);
-  const p = slot.split("T");
-  const ymd = p[0].split("-").map(Number);
-  const dow = (DOW[lang] || DOW.de)[new Date(Date.UTC(ymd[0], ymd[1] - 1, ymd[2])).getUTCDay()];
-  const pad = (n) => (n < 10 ? "0" : "") + n;
-  const date = lang === "en" ? p[0] : pad(ymd[2]) + "." + pad(ymd[1]) + "." + ymd[0];
-  return dow + " " + date + ", " + (p[1] || (mail.T[lang] || mail.T.de).allday);
 }
 
 function findRecord(collection, id) {
@@ -114,7 +97,7 @@ const mailJobs = {
         key: "final",
         vars: {
           title: s.getString("title"),
-          slots_html: mail.list(slots.map((x) => (slots.length > 1 ? x.label + ": " : "") + fmtSlot(to.lang, x.slot))),
+          slots_html: mail.list(slots.map((x) => (slots.length > 1 ? x.label + ": " : "") + require(`${__hooks}/locale.js`).fmtSlot(to.lang, x.slot))),
           link: mail.url("s.html?id=" + s.id),
         },
       });
@@ -123,4 +106,4 @@ const mailJobs = {
   },
 };
 
-module.exports = { responseAdded, finalChanged, mailJobs, fmtSlot };
+module.exports = { responseAdded, finalChanged, mailJobs };

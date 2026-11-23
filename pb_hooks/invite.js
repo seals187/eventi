@@ -171,27 +171,10 @@ const autoReminderBundle = (survey) => "auto-reminder:" + survey.id + ":" + surv
 
 // --- emails (delivered by the outbox) ----------------------------------------------
 
-const DOW = {
-  de: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"],
-  en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-  fr: ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."],
-};
-
-// Closing time in the container's time zone (TZ)
-function fmtDateTime(lang, iso) {
-  const d = new Date(iso.replace(" ", "T"));
-  const pad = (n) => (n < 10 ? "0" : "") + n;
-  const date = lang === "en"
-    ? d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate())
-    : pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear();
-  return (DOW[lang] || DOW.de)[d.getDay()] + " " + date + ", " + pad(d.getHours()) + ":" + pad(d.getMinutes());
-}
-
 // Invited person as recipient: their account's language if they have one, else the owner's
 function recipientFor(inv, owner) {
-  const mail = require(`${__hooks}/mail.js`);
   const u = findUserByEmail(inv.getString("email"));
-  const lang = u && u.getString("lang") ? mail.langOf(u) : mail.langOf(owner);
+  const lang = require(`${__hooks}/locale.js`).langOf(u, owner);
   return { email: inv.getString("email"), name: inv.getString("name"), lang: lang, user: u };
 }
 
@@ -204,7 +187,7 @@ function mailVars(survey, owner, inv, lang) {
     title: survey.getString("title"),
     inviter: owner ? lib.displayName(owner) : ($app.settings().meta.appName || "eventi"),
     desc_html: survey.getString("description") ? '<p style="white-space:pre-line;color:#6b6b78">' + mail.esc(survey.getString("description")) + "</p>" : "",
-    closes_html: closes ? "<p>" + mail.esc(T.closes.replace("{date}", fmtDateTime(lang, closes))) + "</p>" : "",
+    closes_html: closes ? "<p>" + mail.esc(T.closes.replace("{date}", require(`${__hooks}/locale.js`).fmtDateTime(lang, closes))) + "</p>" : "",
     link: mail.url("s.html?id=" + survey.id + "#i=" + inv.getString("token")),
   };
 }
@@ -264,5 +247,5 @@ const mailJobs = {
 };
 
 module.exports = {
-  list, add, linkResponse, queueReminders, scheduleAutoReminders, mailJobs, fmtDateTime,
+  list, add, linkResponse, queueReminders, scheduleAutoReminders, mailJobs,
 };

@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   out - also for the admin notice about pending sign-ups), retries after 1, 5 and 30 minutes, then
   `failed` (visible in the dashboard); cleanup after 30 days. A migration carries over pending emails and
   removes the old scheduling fields
+- Internal: one server-side locale module (`locale.js`) for the language list, default language, the
+  language of a recipient and email date formats; duplicate weekday tables removed
 
 ### Added
 - `POST /api/eventi/outbox/run` (PocketBase superuser): deliver queued emails now; the test suite uses it

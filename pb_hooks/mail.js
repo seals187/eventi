@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Mail texts (de/en/fr) and sending helpers. Loaded via require() like lib.js.
-// Every mail uses the recipient's language (users.lang), falling back to EVENTI_DEFAULT_LANG.
+// Every mail uses the recipient's language (locale.js: users.lang, falling back to EVENTI_DEFAULT_LANG).
 
 const T = {
   de: {
@@ -22,7 +22,6 @@ const T = {
     final_subject: "Termin steht fest: {title}",
     final_body: "<p>Für <strong>{title}</strong> wurde der Termin festgelegt:</p>{slots}{button:link:Zur Umfrage (mit Kalendereintrag)}",
     footer: "Du erhältst diese Mail von {app}. Benachrichtigungen kannst du in deinem Konto abschalten.",
-    allday: "ganztägig",
     survey_invite_subject: "Einladung: {title}",
     survey_invite_body: "<p>{inviter} lädt dich zur Umfrage <strong>{title}</strong> ein.</p>{desc}{closes}{button:link:Jetzt abstimmen}<p style=\"font-size:13px;color:#6b6b78\">Der Link ist persönlich – leite ihn bitte nicht weiter.</p>",
     reminder_subject: "Erinnerung: {title}",
@@ -48,7 +47,6 @@ const T = {
     final_subject: "Date confirmed: {title}",
     final_body: "<p>The date for <strong>{title}</strong> has been set:</p>{slots}{button:link:Open poll (with calendar entry)}",
     footer: "You receive this email from {app}. You can turn off notifications in your account.",
-    allday: "all day",
     survey_invite_subject: "Invitation: {title}",
     survey_invite_body: "<p>{inviter} invites you to the poll <strong>{title}</strong>.</p>{desc}{closes}{button:link:Vote now}<p style=\"font-size:13px;color:#6b6b78\">This link is personal – please don't forward it.</p>",
     reminder_subject: "Reminder: {title}",
@@ -74,7 +72,6 @@ const T = {
     final_subject: "Date fixée : {title}",
     final_body: "<p>La date pour <strong>{title}</strong> a été fixée :</p>{slots}{button:link:Ouvrir le sondage (avec entrée de calendrier)}",
     footer: "Vous recevez cet e-mail de {app}. Vous pouvez désactiver les notifications dans votre compte.",
-    allday: "toute la journée",
     survey_invite_subject: "Invitation : {title}",
     survey_invite_body: "<p>{inviter} vous invite au sondage <strong>{title}</strong>.</p>{desc}{closes}{button:link:Voter maintenant}<p style=\"font-size:13px;color:#6b6b78\">Ce lien est personnel – merci de ne pas le transférer.</p>",
     reminder_subject: "Rappel : {title}",
@@ -88,15 +85,8 @@ function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
-function defaultLang() {
-  const l = $os.getenv("EVENTI_DEFAULT_LANG");
-  return T[l] ? l : "de";
-}
-
-function langOf(user) {
-  const l = user ? user.getString("lang") : "";
-  return T[l] ? l : defaultLang();
-}
+// Language selection lives in locale.js
+const locale = () => require(`${__hooks}/locale.js`);
 
 function appName() {
   return $app.settings().meta.appName || "eventi";
@@ -140,7 +130,7 @@ function list(items) {
 // outbox (outbox.js) can retry; all eventi emails go through the outbox.
 function deliver(to, key, vars) {
   const meta = $app.settings().meta;
-  const m = render(to.lang || defaultLang(), key, vars);
+  const m = render(to.lang || locale().defaultLang(), key, vars);
   $app.newMailClient().send(new MailerMessage({
     from: { address: meta.senderAddress, name: meta.senderName },
     to: [{ address: to.email, name: to.name || "" }],
@@ -151,14 +141,14 @@ function deliver(to, key, vars) {
 }
 
 // Recipient of an account (user is kept for the outbox's eligibility rule)
-const recipient = (u) => ({ email: u.email(), name: u.getString("name"), lang: langOf(u), user: u });
+const recipient = (u) => ({ email: u.email(), name: u.getString("name"), lang: locale().langOf(u), user: u });
 
 // Replaces subject/body of a PocketBase system mail (OTP, verification, reset) with our template
 function rewrite(e, key, vars) {
-  const m = render(langOf(e.record), key, vars);
+  const m = render(locale().langOf(e.record), key, vars);
   e.message.subject = m.subject;
   e.message.html = m.html;
   e.message.text = m.text;
 }
 
-module.exports = { T, esc, render, deliver, list, url, langOf, defaultLang, recipient, rewrite };
+module.exports = { T, esc, render, deliver, list, url, recipient, rewrite };

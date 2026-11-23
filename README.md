@@ -149,6 +149,7 @@ pb_hooks/        main.pb.js        survey API /api/eventi/*        lib.js       
                  notify.pb.js      cron + outbox run route          notify.js      digests, final date
                                                                     outbox.js      email jobs, bundles, retries
                                                                     mail.js        email texts de/en/fr
+                                                                    locale.js      languages, date formats in emails
                  settings.pb.js / accounts.js   .env -> PocketBase settings, admin account, account emails
 pb_public/       index.html (create), s.html (vote), a.html (manage), login.html, account.html, users.html
   js/            ES modules without build: api.js (surveyClient), credentials.js, rules.js, …;

@@ -353,14 +353,9 @@ function userDTO(u) {
   };
 }
 
-const LANGS = ["de", "en", "fr"];
-function cleanLang(l) {
-  return LANGS.indexOf(l) >= 0 ? l : "";
-}
-
 module.exports = {
   fail, readBody, readJSON, newKey, checkKey, cleanStr, cleanAnswers, applySurvey,
   isClosed, findSurvey, findResponse, surveyDTO, responseDTO, maxResponses, notify, isoDate, rulesDTO,
   mailEnabled, signupConfig, signupStatus, currentUser, requireUser, requireAdmin, isOwner, canAdmin, adminSurvey,
-  displayName, userDTO, cleanLang,
+  displayName, userDTO,
 };

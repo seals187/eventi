@@ -11,7 +11,7 @@ routerAdd("GET", "/api/eventi/config", (e) => {
   const signup = lib.signupConfig();
   return e.json(200, {
     version: $os.getenv("EVENTI_VERSION") || "dev",
-    default_lang: $os.getenv("EVENTI_DEFAULT_LANG") || "de",
+    default_lang: require(`${__hooks}/locale.js`).defaultLang(),
     rules: lib.rulesDTO(),
     mail: lib.mailEnabled(),
     signup: { self: signup.self, approval: signup.approval && !signup.open, domains: signup.domains },

@@ -19,7 +19,7 @@ onRecordCreateRequest((e) => {
   e.record.set("status", status);
   e.record.set("verified", false);
   e.record.set("mail_opt_out", false);
-  e.record.set("lang", lib.cleanLang(e.record.getString("lang")));
+  e.record.set("lang", require(`${__hooks}/locale.js`).cleanLang(e.record.getString("lang")));
   e.record.set("name", String(e.record.getString("name")).trim().slice(0, 60));
   e.next();
 
@@ -85,7 +85,7 @@ routerAdd("PATCH", "/api/eventi/me", (e) => {
   const u = lib.requireUser(e);
   const body = lib.readBody(e);
   if ("name" in body) u.set("name", lib.cleanStr(body.name, "name", false));
-  if ("lang" in body) u.set("lang", lib.cleanLang(body.lang));
+  if ("lang" in body) u.set("lang", require(`${__hooks}/locale.js`).cleanLang(body.lang));
   if ("mail_opt_out" in body) u.set("mail_opt_out", body.mail_opt_out === true);
   $app.save(u);
   return e.json(200, lib.userDTO(u));
@@ -144,7 +144,8 @@ routerAdd("POST", "/api/eventi/users", (e) => {
   u.set("name", lib.cleanStr(body.name, "name", false));
   u.set("role", body.role === "admin" ? "admin" : "user");
   u.set("status", "active");
-  u.set("lang", lib.cleanLang(body.lang) || lib.cleanLang(admin.getString("lang")));
+  const locale = require(`${__hooks}/locale.js`);
+  u.set("lang", locale.cleanLang(body.lang) || locale.cleanLang(admin.getString("lang")));
   u.setVerified(true);
   $app.save(u);
 
