@@ -2,6 +2,7 @@ import { h, field, toast, menu, icon, setChildren } from "./util.js";
 import { t, initI18n, onLangChange, appConfig, fmtDate } from "./i18n.js";
 import { api, errMsg, currentUser, isAdmin } from "./api.js";
 import { initHeader, loginUrl } from "./header.js";
+import { limit } from "./rules.js";
 
 const app = document.getElementById("app");
 let users = [];
@@ -25,7 +26,7 @@ async function act(fn, msg) {
 function inviteCard() {
   const mail = appConfig().mail;
   const emailIn = h("input", { type: "email", required: true, autocomplete: "off" });
-  const nameIn = h("input", { type: "text", maxlength: 60, autocomplete: "off" });
+  const nameIn = h("input", { type: "text", maxlength: limit("name"), autocomplete: "off" });
   const roleSel = h("select", {}, h("option", { value: "user" }, t("users.role_user")), h("option", { value: "admin" }, t("users.role_admin")));
   const pwIn = !mail && h("input", { type: "text", minlength: 8, autocomplete: "off" });
   const err = h("p", { class: "error", role: "alert" });

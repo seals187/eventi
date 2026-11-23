@@ -1,0 +1,24 @@
+# Guardrail for every push to main and every pull request:
+#   lint – ESLint incl. the architecture rules (eslint.config.js)
+#   test – the full API / email test suite in isolated containers (tests/docker-test.sh)
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash tests/lint.sh
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: API and email tests
+        run: CLEAN=1 bash tests/docker-test.sh

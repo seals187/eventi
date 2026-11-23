@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Development: ESLint with architecture rules (`tests/lint.sh`, runs in Docker), CI workflow running lint and the
+  test suite on every push and pull request, optional pre-commit hook (`.githooks`), screenshot tool
+  (`tests/screenshot.sh`), release script (`scripts/release.sh`) and contributor docs in `docs/`
+
+### Changed
+- The test container now uses port 8099, so 8098 is free for a local installation
+- Name fields on the account and user pages take their length limit from the server rules
+
 ## [0.1.0] – 2026-11-24
 
 Architecture refactor (see GLOSSARY.md): participant, survey client, survey rules, outbox and locale
@@ -134,6 +145,7 @@ First public release.
 - Test suite `tests/docker-test.sh`: isolated container with Mailpit, API and email flow tests;
   the test container keeps running for manual testing
 
+[Unreleased]: https://github.com/seals187/eventi/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/seals187/eventi/compare/v0.0.7...v0.1.0
 [0.0.7]: https://github.com/seals187/eventi/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/seals187/eventi/compare/v0.0.5...v0.0.6

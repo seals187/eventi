@@ -2,6 +2,10 @@ import { h, params, hashParams, field, icon } from "./util.js";
 import { t, initI18n, onLangChange, appConfig, currentLang } from "./i18n.js";
 import { auth, errMsg, startSession, currentUser, clearSession } from "./api.js";
 import { initHeader } from "./header.js";
+import { limit } from "./rules.js";
+
+// Sign-in codes are 6 digits; a little slack for pasted spaces
+const CODE_MAX_LENGTH = 12;
 
 const app = document.getElementById("app");
 
@@ -103,7 +107,7 @@ function loginView() {
 
 function codeView() {
   const codeIn = input({
-    type: "text", name: "code", inputmode: "numeric", autocomplete: "one-time-code", maxlength: 12, required: true, class: "input code-input",
+    type: "text", name: "code", inputmode: "numeric", autocomplete: "one-time-code", maxlength: CODE_MAX_LENGTH, required: true, class: "input code-input",
   });
   requestAnimationFrame(() => codeIn.focus());
   return card(t("auth.code_title"), t("auth.code_lead", { email }),
@@ -128,7 +132,7 @@ function codeView() {
 
 function signupView() {
   const cfg = appConfig();
-  const nameIn = input({ type: "text", name: "name", maxlength: 60, autocomplete: "name" });
+  const nameIn = input({ type: "text", name: "name", maxlength: limit("name"), autocomplete: "name" });
   const emailIn = input({ type: "email", name: "email", value: email, autocomplete: "email", required: true, oninput: (e) => (email = e.target.value.trim()) });
   const pwIn = input({ type: "password", name: "new-password", autocomplete: "new-password", minlength: 8, required: true });
   const hints = [];

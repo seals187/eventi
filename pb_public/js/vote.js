@@ -1,7 +1,7 @@
 // Voting page (s.html): tabs "Overview", "My answer" and "All answers".
 // Who the participant is and what they may do comes from the server (data.participant);
 // credentials.js keeps the participant's credentials in this browser.
-import { h, store, params, toast, errorCard, icon, setChildren, autoTextarea } from "./util.js";
+import { h, store, params, toast, errorCard, setChildren, autoTextarea } from "./util.js";
 import { t, initI18n, onLangChange, fmtDate, slotParts } from "./i18n.js";
 import { surveyClient, errMsg, subscribe } from "./api.js";
 import {

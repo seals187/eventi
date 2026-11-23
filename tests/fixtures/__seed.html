@@ -1,0 +1,6 @@
+<!doctype html><meta charset="utf-8"><script>
+// Test-only helper (never shipped): put values into localStorage, then go to ?next=
+const p = new URLSearchParams(location.search);
+for (const [k, v] of p) if (k !== "next") localStorage.setItem(k, v);
+location.replace(p.get("next") || "./");
+</script>

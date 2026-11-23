@@ -2,12 +2,13 @@ import { h, field, toast, adminUrl } from "./util.js";
 import { t, initI18n, onLangChange, appConfig, setLang, fmtDate } from "./i18n.js";
 import { api, auth, errMsg, currentUser, updateSessionUser, clearSession } from "./api.js";
 import { initHeader, loginUrl, renderMineMenu } from "./header.js";
+import { limit } from "./rules.js";
 
 const app = document.getElementById("app");
 let surveys = [];
 
 function profileCard(user) {
-  const nameIn = h("input", { type: "text", maxlength: 60, value: user.name, autocomplete: "name", placeholder: user.display_name });
+  const nameIn = h("input", { type: "text", maxlength: limit("name"), value: user.name, autocomplete: "name", placeholder: user.display_name });
   const langSel = h("select", {}, [["", t("account.lang_auto")], ["de", "Deutsch"], ["en", "English"], ["fr", "Français"]]
     .map(([v, l]) => h("option", { value: v, selected: user.lang === v }, l)));
   const optIn = h("input", { type: "checkbox", role: "switch", class: "switch", checked: !user.mail_opt_out });

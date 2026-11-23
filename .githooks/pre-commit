@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Lint before every commit (enable once per clone: git config core.hooksPath .githooks).
+# The full test suite runs in CI (.github/workflows/test.yml).
+if ! docker info >/dev/null 2>&1; then
+  echo "pre-commit: Docker is not running – lint skipped (CI will still check)." >&2
+  exit 0
+fi
+bash "$(git rev-parse --show-toplevel)/tests/lint.sh"

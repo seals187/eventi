@@ -4,3 +4,4 @@ node_modules/
 .idea/
 certs/*
 !certs/.gitkeep
+tests/screenshots/

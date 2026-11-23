@@ -43,12 +43,13 @@ To pin a version, change the image to `ghcr.io/seals187/eventi:<version>`.
 
 ### Releasing
 
-Bump `VERSION` and add a section to `CHANGELOG.md`, then push a tag:
+Collect changes under `## [Unreleased]` in `CHANGELOG.md`, then:
 
 ```bash
-git tag -a v1.2.3 -m "eventi 1.2.3" && git push origin main v1.2.3      # example version
+bash scripts/release.sh 1.2.3      # example version
 ```
 
+The script lints, turns `[Unreleased]` into the version section, bumps `VERSION`, commits, tags and pushes.
 The workflow `.github/workflows/docker.yml` builds and publishes the Docker image (amd64 + arm64,
 tags `<version>`, `<major>.<minor>`, `latest`) and creates the GitHub release with the CHANGELOG section as notes.
 
@@ -138,6 +139,10 @@ Your `.env` and running containers are not touched. Requirements: docker, bash, 
 Afterwards the test containers keep running for manual testing: eventi on http://127.0.0.1:8099
 (admin `admin@test.local` / `adminpass123`) and Mailpit with all emails on http://127.0.0.1:8025.
 Remove them with `docker rm -f eventi-test eventi-mailpit`, or run `CLEAN=1 bash tests/docker-test.sh`.
+
+Lint (ESLint in Docker, including architecture rules): `bash tests/lint.sh`. CI runs lint and the tests on every
+push and pull request. Lint before each commit: `git config core.hooksPath .githooks`.
+Screenshots, ports and test-writing notes: [`docs/testing.md`](docs/testing.md).
 
 ## Architecture
 
