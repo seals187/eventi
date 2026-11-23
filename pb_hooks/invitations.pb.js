@@ -5,8 +5,7 @@
 routerAdd("GET", "/api/eventi/surveys/{id}/invitations", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const inv = require(`${__hooks}/invite.js`);
-  const survey = lib.findSurvey(e.request.pathValue("id"));
-  if (!lib.canAdmin(e, survey)) throw new ForbiddenError("err.forbidden");
+  const survey = lib.adminSurvey(e);
   return e.json(200, inv.list(survey));
 });
 
@@ -14,8 +13,7 @@ routerAdd("GET", "/api/eventi/surveys/{id}/invitations", (e) => {
 routerAdd("POST", "/api/eventi/surveys/{id}/invitations", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const inv = require(`${__hooks}/invite.js`);
-  const survey = lib.findSurvey(e.request.pathValue("id"));
-  if (!lib.canAdmin(e, survey)) throw new ForbiddenError("err.forbidden");
+  const survey = lib.adminSurvey(e);
   if (lib.isClosed(survey)) lib.fail("err.closed");
   const res = inv.add(survey, lib.readBody(e).emails);
   return e.json(200, { added: res.added, skipped: res.skipped, invitations: inv.list(survey) });
@@ -25,8 +23,7 @@ routerAdd("POST", "/api/eventi/surveys/{id}/invitations", (e) => {
 routerAdd("POST", "/api/eventi/surveys/{id}/invitations/remind", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const inv = require(`${__hooks}/invite.js`);
-  const survey = lib.findSurvey(e.request.pathValue("id"));
-  if (!lib.canAdmin(e, survey)) throw new ForbiddenError("err.forbidden");
+  const survey = lib.adminSurvey(e);
   if (lib.isClosed(survey)) lib.fail("err.closed");
   const n = inv.queueReminders(survey, true);
   return e.json(200, { queued: n, invitations: inv.list(survey) });
@@ -40,7 +37,7 @@ routerAdd("DELETE", "/api/eventi/invitations/{id}", (e) => {
   } catch (_) {
     throw new NotFoundError("err.not_found");
   }
-  if (!lib.canAdmin(e, lib.findSurvey(rec.getString("survey")))) throw new ForbiddenError("err.forbidden");
+  lib.adminSurvey(e, rec.getString("survey"));
   $app.delete(rec);
   return e.noContent(204);
 });

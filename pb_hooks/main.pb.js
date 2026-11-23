@@ -54,8 +54,7 @@ routerAdd("GET", "/api/eventi/surveys/{id}", (e) => {
 
 routerAdd("PATCH", "/api/eventi/surveys/{id}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
-  const rec = lib.findSurvey(e.request.pathValue("id"));
-  if (!lib.canAdmin(e, rec)) throw new ForbiddenError("err.forbidden");
+  const rec = lib.adminSurvey(e);
   const finalBefore = lib.readJSON(rec, "final", {});
   lib.applySurvey(rec, lib.readBody(e), false);
   $app.save(rec);
@@ -66,8 +65,7 @@ routerAdd("PATCH", "/api/eventi/surveys/{id}", (e) => {
 
 routerAdd("DELETE", "/api/eventi/surveys/{id}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
-  const rec = lib.findSurvey(e.request.pathValue("id"));
-  if (!lib.canAdmin(e, rec)) throw new ForbiddenError("err.forbidden");
+  const rec = lib.adminSurvey(e);
   $app.delete(rec);
   lib.notify(rec.id);
   return e.noContent(204);

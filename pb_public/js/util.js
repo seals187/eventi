@@ -50,7 +50,8 @@ export const editUrl = (id, key) => new URL(`./?edit=${id}#k=${key}`, location.h
 // Admin links opened in this browser. Own surveys come from the account
 // (/api/eventi/me/surveys); this list keeps links shared by others.
 const MINE = "eventi:mine";
-export const mySurveys = () => store.get(MINE) || [];
+// Entries: { id, admin_key, title, created }. Older entries stored the key as "key".
+export const mySurveys = () => (store.get(MINE) || []).map(({ key, ...m }) => ({ ...m, admin_key: m.admin_key || key }));
 export function saveMySurvey(entry) {
   const list = mySurveys();
   const i = list.findIndex((m) => m.id === entry.id);

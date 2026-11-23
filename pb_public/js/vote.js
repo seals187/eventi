@@ -3,7 +3,7 @@
 // credentials.js keeps the participant's credentials in this browser.
 import { h, store, params, toast, errorCard, icon, setChildren, autoTextarea } from "./util.js";
 import { t, initI18n, onLangChange, fmtDate, slotParts } from "./i18n.js";
-import { api, errMsg, subscribe } from "./api.js";
+import { surveyClient, errMsg, subscribe } from "./api.js";
 import {
   ICON, avatar, statusPills, favoriteCard, scheduleOverview, choiceOverview, textOverview,
   scheduleMatrix, choiceMatrix, commentsList, legend, sortResponses, exportCsv, finalBanner,
@@ -15,6 +15,7 @@ const app = document.getElementById("app");
 const id = params.get("id");
 const NAME_KEY = "eventi:name";
 const creds = surveyCredentials(id);
+const client = surveyClient(id, { credentials: creds });
 
 let data = null;
 let draft = null;               // { name, answers, comment } being edited
@@ -25,7 +26,7 @@ let sortBy = "date";
 const els = {};
 
 async function load() {
-  data = await api.getSurvey(id, creds.headers());
+  data = await client.load();
   creds.sync(data);
 }
 
@@ -284,9 +285,9 @@ async function submit(form, err) {
   try {
     const body = { name, answers: draft.answers, comment: draft.comment.trim() };
     if (data.mine) {
-      await api.updateVote(data.mine.id, body, creds.headers());
+      await client.updateResponse(data.mine.id, body);
     } else {
-      const r = await api.vote(id, body, creds.headers());
+      const r = await client.respond(body);
       creds.remember(r.id, r.edit_key);
     }
     if (!data.participant.name_fixed) store.set(NAME_KEY, name);
@@ -307,7 +308,7 @@ async function submit(form, err) {
 async function deleteMine() {
   if (!confirm(t("vote.delete_confirm"))) return;
   try {
-    await api.deleteVote(data.mine.id, creds.headers());
+    await client.deleteResponse(data.mine.id);
     creds.forgetResponse();
     draft = null;
     await load();

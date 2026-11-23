@@ -74,7 +74,7 @@ function surveysCard() {
     surveys.length
       ? h("ul", { class: "plist" }, surveys.map((s) =>
         h("li", {},
-          h("a", { class: "plist-name", href: adminUrl(s.id, s.key) }, s.title),
+          h("a", { class: "plist-name", href: adminUrl(s.id, s.admin_key) }, s.title),
           h("span", { class: "muted small" },
             `${t("vote.participants", { n: s.count })} · ${s.is_closed ? t("status.closed") : fmtDate(new Date(s.created), { dateStyle: "medium" })}`))))
       : h("p", { class: "muted" }, t("account.no_surveys")),

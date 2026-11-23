@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (account, then invitation, then edit key), whether they may respond, edit or see results, and their
   name; the voting page only reads these flags. Responding again with a stored edit key is now rejected
   as "already voted"
+- Internal: one survey client in the browser (`surveyClient`) holds the survey id and credentials, so pages
+  no longer know endpoints or header names; one server guard (`adminSurvey`) replaces seven copies of
+  "find survey, check management right"; `/api/eventi/me/surveys` returns `admin_key` instead of `key`
 
 ## [0.0.7] – 2026-11-23
 

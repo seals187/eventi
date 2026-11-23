@@ -3,18 +3,18 @@
 // State lives in the module, so typed addresses survive re-renders (realtime updates).
 import { h, toast, icon, setChildren } from "./util.js";
 import { t, appConfig, fmtDate } from "./i18n.js";
-import { api, errMsg } from "./api.js";
+import { errMsg } from "./api.js";
 
-let ctx = null;          // { id, key, survey, responses, onChange }
+let ctx = null;          // { client (surveyClient), survey, responses, onChange }
 let list = [];           // invitations
 let draft = "";
 let formOpen = false;
 let box = null;
 let busy = false;
 
-export async function loadInvites(id, key) {
+export async function loadInvites(client) {
   try {
-    list = await api.listInvitations(id, key);
+    list = await client.invitations.list();
   } catch {
     list = [];
   }
@@ -61,7 +61,7 @@ function paint() {
 
   const add = () => run(async () => {
     if (!draft.trim()) return;
-    const r = await api.invite(ctx.id, ctx.key, draft);
+    const r = await ctx.client.invitations.add(draft);
     list = r.invitations;
     draft = "";
     toast(r.skipped ? t("invites.added_skipped", { n: r.added, m: r.skipped }) : t("invites.added", { n: r.added }));
@@ -69,14 +69,14 @@ function paint() {
 
   const remind = () => run(async () => {
     if (!confirm(t("invites.remind_confirm", { n: pending.length }))) return;
-    const r = await api.remind(ctx.id, ctx.key);
+    const r = await ctx.client.invitations.remind();
     list = r.invitations;
     toast(r.queued ? t("invites.reminded", { n: r.queued }) : t("invites.reminded_none"));
   });
 
   const remove = (inv) => run(async () => {
     if (!confirm(t("invites.remove_confirm", { email: inv.email }))) return;
-    await api.deleteInvitation(inv.id, ctx.key);
+    await ctx.client.invitations.remove(inv.id);
     list = list.filter((x) => x.id !== inv.id);
   });
 

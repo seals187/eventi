@@ -316,6 +316,13 @@ function canAdmin(e, survey) {
   return checkKey(e.request.header.get("X-Admin-Key"), survey.getString("admin_key")) || isOwner(e, survey);
 }
 
+// Survey the request may manage (owner or admin link), or 404 / 403. surveyId defaults to the {id} route param.
+function adminSurvey(e, surveyId) {
+  const survey = findSurvey(surveyId || e.request.pathValue("id"));
+  if (!canAdmin(e, survey)) throw new ForbiddenError("err.forbidden");
+  return survey;
+}
+
 function displayName(u) {
   const n = u.getString("name").trim();
   return n || u.email().split("@")[0];
@@ -344,6 +351,6 @@ function cleanLang(l) {
 module.exports = {
   fail, readBody, readJSON, newKey, checkKey, cleanStr, cleanAnswers, applySurvey,
   isClosed, findSurvey, findResponse, surveyDTO, responseDTO, maxResponses, notify, isoDate,
-  mailEnabled, signupConfig, signupStatus, currentUser, requireUser, requireAdmin, isOwner, canAdmin,
+  mailEnabled, signupConfig, signupStatus, currentUser, requireUser, requireAdmin, isOwner, canAdmin, adminSurvey,
   displayName, userDTO, cleanLang,
 };

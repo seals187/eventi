@@ -1,11 +1,12 @@
 import { h, uid, params, hashParams, publicUrl, adminUrl, iconBtn, linkBox, errorCard, icon, toggleChip, menu, autoTextarea, toast } from "./util.js";
 import { t, tn, initI18n, onLangChange, fmtDate, parseSlot } from "./i18n.js";
-import { api, errMsg, currentUser } from "./api.js";
+import { api, surveyClient, errMsg, currentUser } from "./api.js";
 import { initHeader, renderMineMenu, loginUrl, ownSurveys } from "./header.js";
 
 const app = document.getElementById("app");
 const editId = params.get("edit");
-let editKey = hashParams.get("k") || "";
+// Edit mode: admin link key from the URL (owners get it from the server)
+const editClient = editId ? surveyClient(editId, { adminKey: hashParams.get("k") || "" }) : null;
 
 const TYPE_ICON = { schedule: "calendar", choice: "list", text: "text" };
 
@@ -61,7 +62,7 @@ function clearTemplate() {
 // Copy questions and settings of an own survey into the editor
 async function duplicate(s) {
   try {
-    const d = await api.getSurvey(s.id, { "X-Admin-Key": s.key });
+    const d = await surveyClient(s.id, { adminKey: s.admin_key }).load();
     const copy = fromSurvey(d.survey);
     state = { ...copy, title: copy.title, closes_at: "", template: "copy", copyOf: copy.title, pickTemplate: false, showDesc: !!copy.description };
     render();
@@ -562,8 +563,8 @@ async function submit(btn, summary) {
   btn.disabled = true;
   try {
     if (editId) {
-      await api.updateSurvey(editId, editKey, p);
-      location.href = adminUrl(editId, editKey);
+      await editClient.update(p);
+      location.href = adminUrl(editId, editClient.adminKey);
       return;
     }
     created = await api.createSurvey(p);
@@ -588,9 +589,8 @@ async function main() {
   }
   if (editId) {
     try {
-      const d = await api.getSurvey(editId, editKey ? { "X-Admin-Key": editKey } : {});
+      const d = await editClient.load();
       if (!d.admin) throw Object.assign(new Error("err.forbidden"), { status: 403 });
-      editKey = d.admin_key || editKey;
       state = fromSurvey(d.survey);
       existingCount = d.count;
     } catch (e) {

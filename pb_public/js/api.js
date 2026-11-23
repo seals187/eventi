@@ -50,15 +50,41 @@ async function request(method, url, { body, headers } = {}) {
 const req = (method, path, opts) => request(method, `/api/eventi${path}`, opts);
 const users = (method, path, body) => request(method, `/api/collections/users${path}`, { body });
 
+// Everything about one survey, for one set of credentials. Pages pass the survey id and
+// what they know (admin link key and/or participant credentials from credentials.js) once;
+// only this function knows endpoints and header names.
+export function surveyClient(id, { adminKey = "", credentials = null } = {}) {
+  const sid = encodeURIComponent(id);
+  const admin = () => (adminKey ? { "X-Admin-Key": adminKey } : {});
+  const participant = () => (credentials ? credentials.headers() : {});
+  const both = () => ({ ...participant(), ...admin() });
+  return {
+    // Loads the survey; remembers the admin key the server hands to owners
+    async load() {
+      const data = await req("GET", `/surveys/${sid}`, { headers: both() });
+      if (data.admin_key) adminKey = data.admin_key;
+      return data;
+    },
+    get adminKey() { return adminKey; },
+    update: (body) => req("PATCH", `/surveys/${sid}`, { body, headers: admin() }),
+    remove: () => req("DELETE", `/surveys/${sid}`, { headers: admin() }),
+
+    respond: (body) => req("POST", `/surveys/${sid}/responses`, { body, headers: participant() }),
+    updateResponse: (rid, body) => req("PATCH", `/responses/${encodeURIComponent(rid)}`, { body, headers: participant() }),
+    // Own response (participant) or any response (survey manager)
+    deleteResponse: (rid) => req("DELETE", `/responses/${encodeURIComponent(rid)}`, { headers: both() }),
+
+    invitations: {
+      list: () => req("GET", `/surveys/${sid}/invitations`, { headers: admin() }),
+      add: (emails) => req("POST", `/surveys/${sid}/invitations`, { body: { emails }, headers: admin() }),
+      remind: () => req("POST", `/surveys/${sid}/invitations/remind`, { headers: admin() }),
+      remove: (iid) => req("DELETE", `/invitations/${encodeURIComponent(iid)}`, { headers: admin() }),
+    },
+  };
+}
+
 export const api = {
   createSurvey: (body) => req("POST", "/surveys", { body }),
-  getSurvey: (id, headers) => req("GET", `/surveys/${encodeURIComponent(id)}`, { headers }),
-  updateSurvey: (id, key, body) => req("PATCH", `/surveys/${id}`, { body, headers: key ? { "X-Admin-Key": key } : {} }),
-  deleteSurvey: (id, key) => req("DELETE", `/surveys/${id}`, { headers: key ? { "X-Admin-Key": key } : {} }),
-  // headers: participant credentials (credentials.js)
-  vote: (id, body, headers) => req("POST", `/surveys/${id}/responses`, { body, headers }),
-  updateVote: (rid, body, headers) => req("PATCH", `/responses/${rid}`, { body, headers }),
-  deleteVote: (rid, headers) => req("DELETE", `/responses/${rid}`, { headers }),
 
   me: () => req("GET", "/me"),
   updateMe: (body) => req("PATCH", "/me", { body }),
@@ -68,10 +94,6 @@ export const api = {
   updateUser: (id, body) => req("PATCH", `/users/${id}`, { body }),
   deleteUser: (id) => req("DELETE", `/users/${id}`),
 
-  listInvitations: (id, key) => req("GET", `/surveys/${id}/invitations`, { headers: key ? { "X-Admin-Key": key } : {} }),
-  invite: (id, key, emails) => req("POST", `/surveys/${id}/invitations`, { body: { emails }, headers: key ? { "X-Admin-Key": key } : {} }),
-  remind: (id, key) => req("POST", `/surveys/${id}/invitations/remind`, { headers: key ? { "X-Admin-Key": key } : {} }),
-  deleteInvitation: (iid, key) => req("DELETE", `/invitations/${iid}`, { headers: key ? { "X-Admin-Key": key } : {} }),
 };
 
 // PocketBase's own auth endpoints

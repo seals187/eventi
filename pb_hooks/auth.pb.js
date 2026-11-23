@@ -104,7 +104,7 @@ routerAdd("GET", "/api/eventi/me/surveys", (e) => {
   const recs = $app.findRecordsByFilter("surveys", "owner = {:id}", "-created", 200, 0, { id: u.id });
   return e.json(200, recs.map((r) => ({
     id: r.id,
-    key: r.getString("admin_key"),
+    admin_key: r.getString("admin_key"),
     title: r.getString("title"),
     created: lib.isoDate(r.getString("created")),
     is_closed: lib.isClosed(r),

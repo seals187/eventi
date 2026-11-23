@@ -103,7 +103,7 @@ export async function renderMineMenu(reload = false) {
       h("p", { class: "menu-title" }, t("mine.button")),
       h("ul", { class: "mine-list" }, list.map((m) =>
         h("li", {},
-          h("a", { href: adminUrl(m.id, m.key) },
+          h("a", { href: adminUrl(m.id, m.admin_key) },
             h("span", { class: "mine-title" }, m.title || m.id),
             h("small", {},
               m.created && fmtDate(new Date(m.created), { dateStyle: "medium" }),

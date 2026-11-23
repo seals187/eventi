@@ -2,7 +2,7 @@
 // participants / invitations and the full answer matrix.
 import { h, params, hashParams, publicUrl, adminUrl, editUrl, saveMySurvey, removeMySurvey, toast, errorCard, icon, menu, copyText, setChildren } from "./util.js";
 import { t, initI18n, onLangChange } from "./i18n.js";
-import { api, errMsg, subscribe } from "./api.js";
+import { surveyClient, errMsg, subscribe } from "./api.js";
 import {
   statusPills, favoriteCard, scheduleMatrix, choiceMatrix, textOverview, commentsList, legend, exportCsv,
 } from "./results.js";
@@ -12,19 +12,21 @@ import { openQrModal } from "./qrposter.js";
 
 const app = document.getElementById("app");
 const id = params.get("id");
-let key = hashParams.get("k") || "";
+// The admin link key from the URL; for owners the server supplies it (client.adminKey)
+const client = surveyClient(id, { adminKey: hashParams.get("k") || "" });
+let key = "";
 
 let data = null;
 let answersOpen = true;
 
 async function load() {
-  data = await api.getSurvey(id, key ? { "X-Admin-Key": key } : {});
+  data = await client.load();
   if (!data.admin) throw Object.assign(new Error("err.forbidden"), { status: 403 });
-  key = data.admin_key || key;
-  await loadInvites(id, key);
+  key = client.adminKey;
+  await loadInvites(client);
   // Own surveys are listed via the account; remember links shared by others in this browser
   if (!data.owner) {
-    saveMySurvey({ id, key, title: data.survey.title });
+    saveMySurvey({ id, admin_key: key, title: data.survey.title });
     renderMineMenu();
   }
 }
@@ -51,7 +53,7 @@ function render() {
           admin: true, total: expected, several: schedules.length > 1, onFinal, ringLabel: t("ov.responses"),
         })),
         linkCard(),
-        participantsCard({ id, key, survey: s, responses, onChange: rerenderAnswers })),
+        participantsCard({ client, survey: s, responses, onChange: rerenderAnswers })),
       h("div", { id: "answers-slot", class: "admin-main" }, answersCard())));
 }
 
@@ -127,7 +129,7 @@ function answersCard() {
 
 async function patch(body) {
   try {
-    await api.updateSurvey(id, key, body);
+    await client.update(body);
     await load();
     render();
     toast(t("admin.saved"));
@@ -153,7 +155,7 @@ function onFinal(qid, slot) {
 async function onDeleteResponse(r) {
   if (!confirm(t("admin.delete_response_confirm", { name: r.name }))) return;
   try {
-    await api.deleteVote(r.id, { "X-Admin-Key": key });
+    await client.deleteResponse(r.id);
     await load();
     render();
   } catch (e) {
@@ -164,7 +166,7 @@ async function onDeleteResponse(r) {
 async function deleteSurvey() {
   if (!confirm(t("admin.delete_confirm"))) return;
   try {
-    await api.deleteSurvey(id, key);
+    await client.remove();
     removeMySurvey(id);
     location.href = "./";
   } catch (e) {
