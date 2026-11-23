@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compact poll editor: smaller calendar (flat day cells), question options as small toggles in the
   card header, tighter spacing – a template like “Team dinner” fits on one laptop screen
 - The account setting hint moved into the tooltip of the “Account” chip
+- Admin page: two columns on wide screens (favourite, sharing and participants | answer matrix),
+  more compact cards, ring and matrix rows; the reminder note became the button tooltip
 
 ## [0.0.2] – 2026-11-23
 

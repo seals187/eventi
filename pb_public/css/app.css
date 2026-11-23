@@ -1186,3 +1186,50 @@ input.q-label { margin-bottom: 8px; }
 .settings-chips { margin: 14px 0 4px; }
 .settings-chips .eyebrow { margin-bottom: 6px; }
 .add-chips { margin: 0 0 4px; }
+
+/* admin page: compact, two columns on wide screens */
+main.wrap.wide { max-width: 1180px; }
+.admin-grid { display: grid; gap: 14px; }
+.admin-side, .admin-main { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.admin-side > .card, .admin-main > .card { margin: 0; }
+@media (min-width: 1000px) {
+  .admin-grid { grid-template-columns: 380px minmax(0, 1fr); align-items: start; }
+}
+.wide .page-head { margin-bottom: 14px; }
+.wide .page-title { font-size: 1.7rem; margin-bottom: 2px; }
+.wide .head-row { margin-bottom: 8px; }
+.wide .card { padding: 14px 16px; }
+.wide .card-head { margin-bottom: 10px; }
+.wide .card-head h2 { font-size: 1.05rem; }
+.wide .fav { gap: 14px; }
+.wide .fav .ring { width: 64px; height: 64px; }
+.wide .fav .ring-text strong { font-size: .95rem; }
+.wide .fav-date { font-size: 1.25rem; }
+.wide .fav-main .eyebrow { margin-bottom: 2px; }
+.wide .fav-main .muted { font-size: .88rem; }
+.admin-side .fav { flex-wrap: wrap; }
+.admin-side .fav-main { flex: 1 1 160px; }
+.admin-side .fav > .btn, .admin-side .fav-actions { flex: 1 1 100%; }
+.admin-side .fav > .btn { justify-content: center; }
+.admin-side .link-row input { flex: 1 1 100%; }
+.admin-side .link-row .btn-primary { flex: 1; justify-content: center; }
+.wide .link-foot { margin-top: 8px; }
+.wide .participants .card-foot { margin-top: 10px; padding-top: 10px; }
+.wide .pchip { padding: 3px 10px; font-size: .85rem; }
+.wide .invite-form { margin-top: 10px; }
+/* compact matrix */
+.wide .matrix2 th, .wide .matrix2 td { padding: 5px 8px; }
+.wide .mc { width: 32px; height: 26px; border-radius: 7px; }
+.wide .person { gap: 8px; min-width: 130px; }
+.wide .person .avatar { width: 26px; height: 26px; font-size: .72rem; }
+.wide .person small { font-size: .74rem; }
+.wide .mhead strong { font-size: .95rem; }
+.wide .mfoot-n { font-size: .95rem; margin-bottom: 4px; }
+.wide .legend-chips { margin-top: 10px; }
+.wide .legend-chips .vpill { padding: 3px 10px; font-size: .82rem; }
+.wide .comments-wrap { margin-top: 12px; padding-top: 12px; }
+.wide .comments { gap: 8px; }
+.wide .comments li .avatar { width: 28px; height: 28px; }
+.wide .icon-pill, .wide .menu-boxed > .menu-trigger { width: 36px; height: 36px; }
+.wide .head-actions .btn { padding-block: 7px; }
+.top-in.wrap-wide { max-width: 1180px; }

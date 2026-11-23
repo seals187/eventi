@@ -108,10 +108,12 @@ function paint() {
         ta,
         h("button", { type: "button", class: "btn btn-primary", disabled: busy, onclick: add }, icon("mail"), t("invites.add"))),
       h("small", { class: "hint" }, t("invites.hint"))),
+    // Reminder button; the automatic-reminder note is its tooltip (keeps the card short)
     canInvite && list.length > 0 && h("div", { class: "card-foot" },
-      h("span", { class: "muted small" }, s.closes_at ? t("invites.auto_on") : t("invites.auto_off")),
-      h("button", { type: "button", class: "btn", disabled: busy || !pending.length, onclick: remind },
-        icon("mail"), pending.length ? t("invites.remind", { n: pending.length }) : t("invites.all_voted"))));
+      h("button", {
+        type: "button", class: "btn btn-sm", disabled: busy || !pending.length, onclick: remind,
+        title: s.closes_at ? t("invites.auto_on") : t("invites.auto_off"),
+      }, icon("mail"), pending.length ? t("invites.remind", { n: pending.length }) : t("invites.all_voted"))));
 }
 
 const ICON_CHECK = () => h("span", { class: "pchip-ic", "aria-hidden": "true" }, "✓");

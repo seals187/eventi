@@ -39,14 +39,20 @@ function render() {
   document.title = `${s.title} · eventi`;
   const schedules = s.questions.filter((q) => q.type === "schedule");
 
+  // Wide screens: two columns (status + sharing + participants | answer matrix), so the whole
+  // page fits on one screen; narrow screens stack everything.
+  app.classList.add("wide");
+  document.querySelector(".top-in")?.classList.add("wrap-wide");
   setChildren(app,
     headSection(s, pending.length ? t("admin.voted_of", { n: responses.length, total: expected }) : t("vote.participants", { n: responses.length })),
-    responses.length > 0 && schedules.map((q) => favoriteCard(s, q, responses, {
-      admin: true, total: expected, several: schedules.length > 1, onFinal, ringLabel: t("ov.responses"),
-    })),
-    linkCard(),
-    participantsCard({ id, key, survey: s, responses, onChange: rerenderAnswers }),
-    h("div", { id: "answers-slot" }, answersCard()));
+    h("div", { class: "admin-grid" },
+      h("div", { class: "admin-side" },
+        responses.length > 0 && schedules.map((q) => favoriteCard(s, q, responses, {
+          admin: true, total: expected, several: schedules.length > 1, onFinal, ringLabel: t("ov.responses"),
+        })),
+        linkCard(),
+        participantsCard({ id, key, survey: s, responses, onChange: rerenderAnswers })),
+      h("div", { id: "answers-slot", class: "admin-main" }, answersCard())));
 }
 
 // Only the answer matrix depends on the invitation list (pending rows)
