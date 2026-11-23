@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.7] – 2026-11-23
 
 ### Changed
 - Voting page on phones (< 600 px) much more compact: overview slots on two lines instead of four,
@@ -105,6 +105,7 @@ First public release.
 - Test suite `tests/docker-test.sh`: isolated container with Mailpit, API and email flow tests;
   the test container keeps running for manual testing
 
+[0.0.7]: https://github.com/seals187/eventi/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/seals187/eventi/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/seals187/eventi/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/seals187/eventi/compare/v0.0.3...v0.0.4
